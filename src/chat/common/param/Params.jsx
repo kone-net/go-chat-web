@@ -1,7 +1,7 @@
 export const API_VERSION = "/api/v1/";
 
 //local
-export const HOST = "http://local.deepsky.com:8888";
+export const HOST = "http://localhost:8888";
 
 export const LOGIN_URL = HOST + '/user/login'
 export const USER_URL = HOST + '/user/'
