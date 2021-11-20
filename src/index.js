@@ -1,13 +1,19 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import App from './App';
+import Login from './chat/Login';
+import Panel from './chat/Panel';
+import { Switch, Route, BrowserRouter } from 'react-router-dom';
 import reportWebVitals from './reportWebVitals';
 
 ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+  <BrowserRouter>
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route path="/panel/:user" component={Panel} />
+        <Route path="/" component={Login} />
+      </Switch>
+    </BrowserRouter>,
   document.getElementById('root')
 );
 
