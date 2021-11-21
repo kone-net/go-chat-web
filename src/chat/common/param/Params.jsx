@@ -1,7 +1,9 @@
 export const API_VERSION = "/api/v1/";
 
+const PROTOCOL = "http://"
+export const IP_PORT = "127.0.0.1:8888";
 //local
-export const HOST = "http://localhost:8888";
+export const HOST = PROTOCOL + IP_PORT;
 
 export const LOGIN_URL = HOST + '/user/login'
 export const USER_URL = HOST + '/user/'

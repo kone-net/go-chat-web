@@ -20,7 +20,8 @@ import {
     PoweroffOutlined,
     PhoneOutlined,
     VideoCameraOutlined,
-    UngroupOutlined
+    UngroupOutlined,
+    DesktopOutlined
 } from '@ant-design/icons';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import moment from 'moment';
@@ -130,6 +131,18 @@ class Panel extends React.Component {
             drawerVisible: false,
             mediaPanelDrawerVisible: false,
             groupUsers: [],
+            video: {
+                height: 400,
+                width: 540
+            },
+            share: {
+                height: 540,
+                width: 960
+            },
+            currentScreen: {
+                height: 0,
+                width: 0
+            }
         }
     }
 
@@ -217,7 +230,12 @@ class Panel extends React.Component {
      * websocket连接
      */
     connection = () => {
-        // let arr = []
+        var image = document.getElementById('receiver');
+
+        let arr = []
+        var video = document.getElementById('preview1')
+        let i = 0
+
         // let flag = false
         // let sourceBuffer
         // let mediaSource = new MediaSource()
@@ -231,7 +249,7 @@ class Panel extends React.Component {
         //     var mime = 'video/webm; codecs="opus, vp9"';
         //     // 新建一个 sourceBuffer
         //     sourceBuffer = mediaSource.addSourceBuffer(mime);
-            
+
         //     sourceBuffer.addEventListener('updateend', function (_) {
         //         console.log(mediaSource.readyState); // ended
         //         // sourceBuffer.appendBuffer(arr)
@@ -240,7 +258,7 @@ class Panel extends React.Component {
 
 
         console.log("to connection")
-        socket = new WebSocket("ws://localhost:8888/socket.io?user=" + this.props.match.params.user)
+        socket = new WebSocket("ws://" + Params.IP_PORT + "/socket.io?user=" + this.props.match.params.user)
 
         socket.onopen = () => {
             heartCheck.start()
@@ -259,13 +277,54 @@ class Panel extends React.Component {
                     return;
                 }
 
+                if (messagePB.contentType === 8) {
+                    let currentScreen = {
+                        width: this.state.video.width,
+                        height: this.state.video.height
+                    }
+                    this.setState({
+                        currentScreen: currentScreen
+                    })
+                    image.src = messagePB.content
+                    return;
+                }
+
+                if (messagePB.contentType === 9) {
+                    let currentScreen = {
+                        width: this.state.share.width,
+                        height: this.state.share.height
+                    }
+                    this.setState({
+                        currentScreen: currentScreen
+                    })
+                    image.src = messagePB.content
+                    return;
+                }
+
                 // 接受语音电话或者视频电话
-                // if (messagePB.contentType === 6 || messagePB.contentType === 7) {
-                //     arr.push(messagePB.file.buffer)
-                //     sourceBuffer.appendBuffer(messagePB.file.buffer)
-                    
-                //     return;
-                // }
+                if (messagePB.contentType === 6 || messagePB.contentType === 7) {
+                    i++
+                    console.log(i)
+                    // arr.push(messagePB.file)
+
+                    if (i % 5 === 0) {
+                        // let fileReader = new FileReader();
+                        let recordedBlob = new Blob(arr, { type: "video/webm" }); //video/x-matroska;codecs=avc1,opus video/webm
+                        // fileReader.readAsDataURL(recordedBlob)
+                        // fileReader.onload = (e) => {
+                        //     console.log(e.target.result)
+                        //     video.src = e.target.result;
+                        //     this.setState({
+                        //         url: e.target.result
+                        //     })
+                        // }
+                        console.log(recordedBlob)
+                        video.src = URL.createObjectURL(recordedBlob);
+                    }
+                    // sourceBuffer.appendBuffer(messagePB.file.buffer)
+
+                    return;
+                }
 
                 let avatar = this.state.avatar
                 if (messagePB.messageType === 2) {
@@ -278,7 +337,7 @@ class Panel extends React.Component {
                         {
                             author: messagePB.fromUsername,
                             avatar: avatar,
-                            content: <p>{(messagePB.contentType === 2 || messagePB.contentType === 3) ? <img src={"http://localhost:8888/file/" + messagePB.url} alt="" height="350px" /> : messagePB.content}</p>,
+                            content: <p>{(messagePB.contentType === 2 || messagePB.contentType === 3) ? <img src={Params.HOST + "/file/" + messagePB.url} alt="" height="350px" /> : messagePB.content}</p>,
                             datetime: moment().fromNow(),
                         },
                     ],
@@ -547,11 +606,11 @@ class Panel extends React.Component {
                     if (contentType === 2) {
 
                     } else if (contentType === 3) {
-                        content = <img src={"http://localhost:8888/file/" + data[i].url} alt="" width="150px" />
+                        content = <img src={Params.HOST + "/file/" + data[i].url} alt="" width="150px" />
                     } else if (contentType === 4) {
-                        content = <audio src={"http://localhost:8888/file/" + data[i].url} controls autoPlay={false} preload="auto" />
+                        content = <audio src={Params.HOST + "/file/" + data[i].url} controls autoPlay={false} preload="auto" />
                     } else if (contentType === 5) {
-                        content = <video src={"http://localhost:8888/file/" + data[i].url} controls autoPlay={false} preload="auto" width='200px' />
+                        content = <video src={Params.HOST + "/file/" + data[i].url} controls autoPlay={false} preload="auto" width='200px' />
                     }
 
                     let comment = {
@@ -719,12 +778,10 @@ class Panel extends React.Component {
                 video: true,
             }).then((stream) => {
                 preview.srcObject = stream;
-                console.log(stream)
                 this.recorder = new MediaRecorder(stream);
 
                 this.recorder.ondataavailable = (event) => {
                     let data = event.data;
-                    // console.log(data)
                     this.dataChunks.push(data);
                 };
                 this.recorder.start(1000);
@@ -785,6 +842,7 @@ class Panel extends React.Component {
         this.dataChunks = []
     }
 
+    interval = null;
     /**
      * 开启视频电话
      */
@@ -794,7 +852,7 @@ class Panel extends React.Component {
             navigator.mozGetUserMedia ||
             navigator.msGetUserMedia; //获取媒体对象（这里指摄像头）
 
-        // let preview = document.getElementById("preview");
+        let preview = document.getElementById("preview1");
         this.setState({
             isRecord: true
         })
@@ -804,50 +862,143 @@ class Panel extends React.Component {
                 audio: true,
                 video: true,
             }).then((stream) => {
-                console.log(stream)
-                // preview.srcObject = stream;
-                this.recorder = new MediaRecorder(stream);
+                preview.srcObject = stream;
 
-                this.recorder.ondataavailable = (event) => {
-                    let data = event.data;
-                    // console.log(data)
-                    // this.dataChunks.push(data);
-                    let reader = new FileReader()
-                    reader.readAsArrayBuffer(data)
+                //传输视频流
+                // this.recorder = new MediaRecorder(stream);
+                // this.recorder.ondataavailable = (event) => {
+                //     let data = event.data;
+                //     let reader = new FileReader()
+                //     reader.readAsArrayBuffer(data)
 
-                    reader.onload = ((e) => {
-                        let fileData = e.target.result
+                //     reader.onload = ((e) => {
+                //         let fileData = e.target.result
 
-                        // 上传文件必须将ArrayBuffer转换为Uint8Array
-                        let data = {
-                            fromUsername: localStorage.username,
-                            from: this.state.fromUser,
-                            to: this.state.toUser,
-                            messageType: this.state.messageType,
-                            content: this.state.value,
-                            contentType: 6,
-                            file: new Uint8Array(fileData)
-                        }
-                        let message = protobuf.lookup("protocol.Message")
-                        const messagePB = message.create(data)
-                        socket.send(message.encode(messagePB).finish())
-                    })
-                };
-                this.recorder.start(1000);
+                //         // 上传文件必须将ArrayBuffer转换为Uint8Array
+                //         let data = {
+                //             fromUsername: localStorage.username,
+                //             from: this.state.fromUser,
+                //             to: this.state.toUser,
+                //             messageType: this.state.messageType,
+                //             content: this.state.value,
+                //             contentType: 6,
+                //             file: new Uint8Array(fileData)
+                //         }
+                //         let message = protobuf.lookup("protocol.Message")
+                //         const messagePB = message.create(data)
+                //         socket.send(message.encode(messagePB).finish())
+                //     })
+                // };
+                // this.recorder.start(1000);
             });
+
+
+        var canvas = document.getElementById("canvas");
+        var ctx = canvas.getContext('2d');
+        this.interval = window.setInterval(() => {
+            let width = this.state.video.width
+            let height = this.state.video.height
+            let currentScreen = {
+                width: width,
+                height: height
+            }
+            this.setState({
+                currentScreen: currentScreen
+            })
+            ctx.drawImage(preview, 0, 0, width, height);
+            let data = {
+                fromUsername: localStorage.username,
+                from: this.state.fromUser,
+                to: this.state.toUser,
+                messageType: this.state.messageType,
+                content: canvas.toDataURL("image/jpeg", 0.5),
+                contentType: 8,
+            }
+            let message = protobuf.lookup("protocol.Message")
+            const messagePB = message.create(data)
+            socket.send(message.encode(messagePB).finish())
+        }, 60);
     }
 
     /**
      * 停止视频电话
      */
     stopVideoOnline = () => {
+        this.setState({
+            isRecord: false
+        })
         if (this.recorder) {
             this.recorder.stop()
             this.recorder = null
         }
-        // let preview = document.getElementById("preview");
-        // preview.srcObject.getTracks().forEach((track) => track.stop());
+        let preview = document.getElementById("preview1");
+        if (preview && preview.srcObject && preview.srcObject.getTracks()) {
+            preview.srcObject.getTracks().forEach((track) => track.stop());
+        }
         this.dataChunks = []
+
+        if (this.interval) {
+            clearInterval(this.interval)
+        }
+
+        // 停止视频或者屏幕共享时，将画布最小
+        let currentScreen = {
+            width: 0,
+            height: 0
+        }
+        this.setState({
+            currentScreen: currentScreen
+        })
+    }
+
+
+    /**
+     * 屏幕共享
+     */
+    startShareOnline = () => {
+        navigator.getUserMedia = navigator.getUserMedia ||
+            navigator.webkitGetUserMedia ||
+            navigator.mozGetUserMedia ||
+            navigator.msGetUserMedia; //获取媒体对象（这里指摄像头）
+
+        let preview = document.getElementById("preview1");
+        this.setState({
+            isRecord: true
+        })
+
+        navigator.mediaDevices
+            .getDisplayMedia({
+                video: true,
+            }).then((stream) => {
+                preview.srcObject = stream;
+            });
+
+
+        var canvas = document.getElementById("canvas");
+        var ctx = canvas.getContext('2d');
+        this.interval = window.setInterval(() => {
+            let width = this.state.share.width
+            let height = this.state.share.height
+            let currentScreen = {
+                width: width,
+                height: height
+            }
+            this.setState({
+                currentScreen: currentScreen
+            })
+            ctx.drawImage(preview, 0, 0, width, height);
+            let data = {
+                fromUsername: localStorage.username,
+                from: this.state.fromUser,
+                to: this.state.toUser,
+                messageType: this.state.messageType,
+                content: canvas.toDataURL("image/jpeg", 0.5),
+                contentType: 9,
+            }
+            let message = protobuf.lookup("protocol.Message")
+            const messagePB = message.create(data)
+            socket.send(message.encode(messagePB).finish())
+        }, 60);
     }
 
     /**
@@ -881,7 +1032,9 @@ class Panel extends React.Component {
                 <Row style={{ paddingTop: 20, paddingBottom: 40 }}>
                     <Col span={2} style={{ borderRight: '1px solid #f0f0f0', textAlign: 'center' }}>
                         <p style={{ marginTop: 15 }}>
-                            <Avatar src={this.state.user.avatar} alt={this.state.user.username} />
+                            <Tooltip title={this.state.user.username}>
+                                <Avatar src={this.state.user.avatar} alt={this.state.user.username} />
+                            </Tooltip>
                         </p>
                         <p >
                             <Button icon={<UserOutlined />} size="large" type='link' disabled={this.state.menuType === 1} onClick={this.fetchUserList}>
@@ -991,6 +1144,14 @@ class Panel extends React.Component {
                                     icon={<VideoCameraOutlined />} disabled={toUser === ''}
                                 />
                             </Tooltip>
+                            <Tooltip title="屏幕共享">
+                                <Button
+                                    shape="circle"
+                                    onClick={this.startShareOnline}
+                                    style={{ marginRight: 10 }}
+                                    icon={<DesktopOutlined />} disabled={toUser === ''}
+                                />
+                            </Tooltip>
                             <Tooltip title="结束视频语音">
                                 <Button
                                     shape="circle"
@@ -1050,8 +1211,10 @@ class Panel extends React.Component {
                     />
                 </Drawer>
 
-                <Drawer width='580px' forceRender={true} title="媒体面板" placement="right" onClose={this.mediaPanelDrawerOnClose} visible={this.state.mediaPanelDrawerVisible}>
+                <Drawer width='1000px' forceRender={true} title="媒体面板" placement="right" onClose={this.mediaPanelDrawerOnClose} visible={this.state.mediaPanelDrawerVisible}>
                     <video id="preview1" width="540px" height="auto" autoPlay muted controls />
+                    <img id="receiver" width={this.state.currentScreen.width} height={this.state.currentScreen.height} alt="" />
+                    <canvas id="canvas" width={this.state.currentScreen.width} height={this.state.currentScreen.height} />
                 </Drawer>
             </>
         );
