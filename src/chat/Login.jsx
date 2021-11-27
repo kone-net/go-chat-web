@@ -3,6 +3,7 @@ import {
     Button,
     Form,
     Input,
+    Drawer,
     message
 } from 'antd';
 import { axiosPostBody } from './util/Request';
@@ -12,6 +13,7 @@ class Login extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
+            registerDrawerVisible: false
         }
 
     }
@@ -37,6 +39,32 @@ class Login extends React.Component {
         console.log('Failed:', errorInfo);
     };
 
+    showRegister = () => {
+        this.setState({
+            registerDrawerVisible: true
+        })
+    }
+
+    registerDrawerOnClose = () => {
+        this.setState({
+            registerDrawerVisible: false
+        })
+    }
+
+    onRegister = (values) => {
+        let data = {
+            ...values
+        }
+
+        axiosPostBody(Params.REGISTER_URL, data)
+            .then(_response => {
+                message.success("注册成功！");
+                this.setState({
+                    registerDrawerVisible: false
+                })
+            });
+    }
+
     render() {
 
         return (
@@ -51,7 +79,7 @@ class Login extends React.Component {
                     style={{ marginTop: 150 }}
                 >
                     <Form.Item
-                        label="Username"
+                        label="用户名"
                         name="username"
                         rules={[{ required: true, message: 'Please input your username!' }]}
                     >
@@ -59,7 +87,7 @@ class Login extends React.Component {
                     </Form.Item>
 
                     <Form.Item
-                        label="Password"
+                        label="密码"
                         name="password"
                         rules={[{ required: true, message: 'Please input your password!' }]}
                     >
@@ -68,10 +96,65 @@ class Login extends React.Component {
 
                     <Form.Item wrapperCol={{ offset: 9, span: 6 }}>
                         <Button type="primary" htmlType="submit">
-                            Submit
+                            登录
+                        </Button>
+
+                        <Button onClick={this.showRegister} style={{ marginLeft: 40 }}>
+                            注册
                         </Button>
                     </Form.Item>
+
                 </Form>
+
+                <Drawer width='500px' forceRender={true} title="注册" placement="right" onClose={this.registerDrawerOnClose} visible={this.state.registerDrawerVisible}>
+                    <Form
+                        name="basic"
+                        labelCol={{ span: 4 }}
+                        wrapperCol={{ span: 16 }}
+                        onFinish={this.onRegister}
+                        autoComplete="off"
+                        style={{ marginTop: 150 }}
+                    >
+                        <Form.Item
+                            label="用户名"
+                            name="username"
+                            rules={[{ required: true, message: '用户名!' }]}
+                        >
+                            <Input />
+                        </Form.Item>
+
+                        <Form.Item
+                            label="密码"
+                            name="password"
+                            rules={[{ required: true, message: '密码!' }]}
+                        >
+                            <Input.Password />
+                        </Form.Item>
+
+                        <Form.Item
+                            label="邮箱"
+                            name="email"
+                            rules={[{ required: true, message: '邮箱!' }]}
+                        >
+                            <Input />
+                        </Form.Item>
+
+                        <Form.Item
+                            label="昵称"
+                            name="nickname"
+                            rules={[{ required: true, message: '昵称!' }]}
+                        >
+                            <Input />
+                        </Form.Item>
+
+                        <Form.Item wrapperCol={{ offset: 2, span: 6 }}>
+                            <Button type="primary" htmlType="submit" style={{ marginLeft: 40 }}>
+                                注册
+                        </Button>
+                        </Form.Item>
+
+                    </Form>
+                </Drawer>
             </div>
         );
     }

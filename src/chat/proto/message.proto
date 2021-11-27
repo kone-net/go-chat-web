@@ -11,5 +11,6 @@ message Message {
     string type = 7;
     int32 messageType = 8;
     string url = 9;
-    bytes file = 10;
+    string fileSuffix = 10;
+    bytes file = 11;
 }

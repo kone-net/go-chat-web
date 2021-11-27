@@ -1,5 +1,4 @@
 /*eslint-disable block-scoped-var, id-length, no-control-regex, no-magic-numbers, no-prototype-builtins, no-redeclare, no-shadow, no-var, sort-vars*/
-// "use strict";
 
 var $protobuf = require("protobufjs/light");
 
@@ -45,9 +44,13 @@ var $root = ($protobuf.roots["default"] || ($protobuf.roots["default"] = new $pr
             type: "string",
             id: 9
           },
+          fileSuffix: {
+            type: "string",
+            id: 10
+          },
           file: {
             type: "bytes",
-            id: 10
+            id: 11
           }
         }
       }

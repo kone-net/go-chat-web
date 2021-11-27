@@ -5,15 +5,19 @@ import Login from './chat/Login';
 import Panel from './chat/Panel';
 import { Switch, Route, BrowserRouter } from 'react-router-dom';
 import reportWebVitals from './reportWebVitals';
+import { Provider } from 'react-redux';
+import store from './chat/redux/module/index'
 
 ReactDOM.render(
-  <BrowserRouter>
+  <Provider store={store}>
+    <BrowserRouter>
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/panel/:user" component={Panel} />
         <Route path="/" component={Login} />
       </Switch>
-    </BrowserRouter>,
+    </BrowserRouter>
+  </Provider>,
   document.getElementById('root')
 );
 
