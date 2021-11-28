@@ -62,11 +62,11 @@ https://github.com/kone-net/go-chat-web
 
 ### 截图
 * 语音，文字，图片，视频消息
-![go-chat-panel](/static/screenshot/go-chat-panel.jpeg)
+![go-chat-panel](/public/screenshot/go-chat-panel.jpeg)
 
 * 视频通话
-![video-chat](/static/screenshot/video-chat.png)
+![video-chat](/public/screenshot/video-chat.png)
 
 * 屏幕共享
-![screen-share](/static/screenshot/screen-share.png)
+![screen-share](/public/screenshot/screen-share.png)
 
