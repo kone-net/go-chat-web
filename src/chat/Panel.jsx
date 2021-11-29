@@ -404,6 +404,9 @@ class Panel extends React.Component {
         } else if (type === "offer_ice") {
             peer.addIceCandidate(iceCandidate)
         } else if (type === "offer") {
+            if (!this.checkMediaPermisssion()) {
+                return;
+            }
             let preview = document.getElementById("preview1");
             navigator.mediaDevices
                 .getUserMedia({
@@ -454,6 +457,18 @@ class Panel extends React.Component {
             }
             lockConnection = false
         }, 10000)
+    }
+
+    /**
+     * 检查媒体权限是否开启
+     * @returns 媒体权限是否开启
+     */
+    checkMediaPermisssion = () => {
+        if (!navigator || !navigator.mediaDevices) {
+            message.error("获取摄像头权限失败！")
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -832,17 +847,20 @@ class Panel extends React.Component {
      * 开始录制音频
      */
     audiorecorder = null;
+    hasAudioPermission = true;
     startAudio = () => {
         this.setState({
             isRecord: true
         })
         this.audiorecorder = new Recorder()
+        this.hasAudioPermission = true;
         this.audiorecorder
             .start()
             .then(() => {
                 console.log("start audio...")
-            }, (error) => {
-                console.log("audio start error", error)
+            }, (_error) => {
+                this.hasAudioPermission = false;
+                message.error("录音权限获取失败！")
             })
     }
 
@@ -853,6 +871,9 @@ class Panel extends React.Component {
         this.setState({
             isRecord: false
         })
+        if (!this.hasAudioPermission) {
+            return;
+        }
         let blob = this.audiorecorder.getWAVBlob();
         this.audiorecorder.stop()
         this.audiorecorder.destroy()
@@ -861,7 +882,6 @@ class Panel extends React.Component {
             });
         this.audiorecorder = null;
 
-        console.log(blob)
         let reader = new FileReader()
         reader.readAsArrayBuffer(blob)
 
@@ -876,6 +896,7 @@ class Panel extends React.Component {
                 messageType: this.state.messageType,
                 content: this.state.value,
                 contentType: 3,
+                fileSuffix: "wav",
                 file: new Uint8Array(imgData)
             }
             let message = protobuf.lookup("protocol.Message")
@@ -904,11 +925,17 @@ class Panel extends React.Component {
      */
     dataChunks = [];
     recorder = null;
+    hasVideoPermission = true;
     startVideoRecord = (e) => {
+        this.hasVideoPermission = true;
         navigator.getUserMedia = navigator.getUserMedia ||
             navigator.webkitGetUserMedia ||
             navigator.mozGetUserMedia ||
             navigator.msGetUserMedia; //获取媒体对象（这里指摄像头）
+        if (!this.checkMediaPermisssion()) {
+            this.hasVideoPermission = false;
+            return;
+        }
 
         let preview = document.getElementById("preview");
         this.setState({
@@ -939,6 +966,9 @@ class Panel extends React.Component {
         this.setState({
             isRecord: false
         })
+        if (!this.hasVideoPermission) {
+            return;
+        }
 
         let recordedBlob = new Blob(this.dataChunks, { type: "video/webm" });
 
@@ -956,6 +986,7 @@ class Panel extends React.Component {
                 messageType: this.state.messageType,
                 content: this.state.value,
                 contentType: 3,
+                fileSuffix: "webm",
                 file: new Uint8Array(fileData)
             }
             let message = protobuf.lookup("protocol.Message")
@@ -981,7 +1012,9 @@ class Panel extends React.Component {
             this.recorder = null
         }
         let preview = document.getElementById("preview");
-        preview.srcObject.getTracks().forEach((track) => track.stop());
+        if (preview.srcObject && preview.srcObject.getTracks()) {
+            preview.srcObject.getTracks().forEach((track) => track.stop());
+        }
         this.dataChunks = []
     }
 
@@ -994,6 +1027,9 @@ class Panel extends React.Component {
             navigator.webkitGetUserMedia ||
             navigator.mozGetUserMedia ||
             navigator.msGetUserMedia; //获取媒体对象（这里指摄像头）
+        if (!this.checkMediaPermisssion()) {
+            return;
+        }
 
         let preview = document.getElementById("preview1");
         this.setState({
@@ -1074,10 +1110,14 @@ class Panel extends React.Component {
             navigator.webkitGetUserMedia ||
             navigator.mozGetUserMedia ||
             navigator.msGetUserMedia; //获取媒体对象（这里指摄像头）
+        if (!this.checkMediaPermisssion()) {
+            return;
+        }
 
         let preview = document.getElementById("preview1");
         this.setState({
-            isRecord: true
+            isRecord: true,
+            mediaPanelDrawerVisible: true
         })
 
         navigator.mediaDevices
