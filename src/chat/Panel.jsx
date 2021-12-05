@@ -28,6 +28,7 @@ import InfiniteScroll from 'react-infinite-scroll-component';
 import moment from 'moment';
 import { axiosGet, axiosPostBody } from './util/Request';
 import * as Params from './common/param/Params'
+import * as Constant from './common/constant/Constant'
 import UserInfo from './component/UserInfo'
 
 import protobuf from './proto/proto'
@@ -115,6 +116,7 @@ class Panel extends React.Component {
         super(props)
         this.state = {
             isRecord: false,
+            onlineType: 1, // 在线视频或者音频： 1视频，2音频
             user: {},
             comments: [],
             submitting: false,
@@ -305,7 +307,7 @@ class Panel extends React.Component {
                 }
 
                 // 接受语音电话或者视频电话 webrtc
-                if (messagePB.type === "webrtc") {
+                if (messagePB.type === Constant.MESSAGE_TRANS_TYPE) {
                     this.dealWebRtcMessage(messagePB);
                     return;
                 }
@@ -368,7 +370,7 @@ class Panel extends React.Component {
                     to: this.state.toUser,
                     messageType: this.state.messageType,
                     content: JSON.stringify(candidate),
-                    type: "webrtc",
+                    type: Constant.MESSAGE_TRANS_TYPE,
                 }
                 let message = protobuf.lookup("protocol.Message")
                 const messagePB = message.create(data)
@@ -383,8 +385,13 @@ class Panel extends React.Component {
          */
         peer.ontrack = (e) => {
             if (e && e.streams) {
-                let remoteVideo = document.getElementById("remoteVideo");
-                remoteVideo.srcObject = e.streams[0];
+                if (this.state.onlineType === 1) {
+                    let remoteVideo = document.getElementById("remoteVideo");
+                    remoteVideo.srcObject = e.streams[0];
+                } else {
+                    let remoteAudio = document.getElementById("audioPhone");
+                    remoteAudio.srcObject = e.streams[0];
+                }
             }
         };
     }
@@ -407,11 +414,26 @@ class Panel extends React.Component {
             if (!this.checkMediaPermisssion()) {
                 return;
             }
-            let preview = document.getElementById("preview1");
+            let preview
+
+            let video = false;
+            if (messagePB.contentType === Constant.VIDEO_ONLINE) {
+                preview = document.getElementById("preview1");
+                video = true
+                this.setState({
+                    onlineType: 1,
+                })
+            } else {
+                preview = document.getElementById("audioPhone");
+                this.setState({
+                    onlineType: 2,
+                })
+            }
+
             navigator.mediaDevices
                 .getUserMedia({
                     audio: true,
-                    video: true,
+                    video: video,
                 }).then((stream) => {
                     preview.srcObject = stream;
                     stream.getTracks().forEach(track => {
@@ -428,13 +450,13 @@ class Panel extends React.Component {
                                     fromUsername: localStorage.username,
                                     from: this.state.fromUser,
                                     to: this.state.toUser,
-                                    messageType: this.state.messageType,
+                                    messageType: messagePB.contentType,
                                     content: JSON.stringify(answer),
-                                    type: "webrtc",
+                                    type: Constant.MESSAGE_TRANS_TYPE,
                                 }
                                 let message = protobuf.lookup("protocol.Message")
-                                const messagePB = message.create(data)
-                                socket.send(message.encode(messagePB).finish())
+                                const messagePBNew = message.create(data)
+                                socket.send(message.encode(messagePBNew).finish())
                             })
                         });
                 });
@@ -464,6 +486,10 @@ class Panel extends React.Component {
      * @returns 媒体权限是否开启
      */
     checkMediaPermisssion = () => {
+        navigator.getUserMedia = navigator.getUserMedia ||
+            navigator.webkitGetUserMedia ||
+            navigator.mozGetUserMedia ||
+            navigator.msGetUserMedia; //获取媒体对象（这里指摄像头）
         if (!navigator || !navigator.mediaDevices) {
             message.error("获取摄像头权限失败！")
             return false;
@@ -1023,16 +1049,13 @@ class Panel extends React.Component {
      * 开启视频电话
      */
     startVideoOnline = () => {
-        navigator.getUserMedia = navigator.getUserMedia ||
-            navigator.webkitGetUserMedia ||
-            navigator.mozGetUserMedia ||
-            navigator.msGetUserMedia; //获取媒体对象（这里指摄像头）
         if (!this.checkMediaPermisssion()) {
             return;
         }
 
         let preview = document.getElementById("preview1");
         this.setState({
+            onlineType: 1,
             isRecord: true,
             rtcType: 'offer'
         })
@@ -1056,8 +1079,9 @@ class Panel extends React.Component {
                             from: this.state.fromUser,
                             to: this.state.toUser,
                             messageType: this.state.messageType,
+                            contentType: Constant.VIDEO_ONLINE,
                             content: JSON.stringify(offer),
-                            type: "webrtc",
+                            type: Constant.MESSAGE_TRANS_TYPE,
                         }
                         let message = protobuf.lookup("protocol.Message")
                         const messagePB = message.create(data)
@@ -1081,9 +1105,19 @@ class Panel extends React.Component {
             this.recorder.stop()
             this.recorder = null
         }
-        let preview = document.getElementById("preview1");
+        let preview1 = document.getElementById("preview1");
+        if (preview1 && preview1.srcObject && preview1.srcObject.getTracks()) {
+            preview1.srcObject.getTracks().forEach((track) => track.stop());
+        }
+
+        let preview = document.getElementById("preview");
         if (preview && preview.srcObject && preview.srcObject.getTracks()) {
             preview.srcObject.getTracks().forEach((track) => track.stop());
+        }
+
+        let audioPhone = document.getElementById("audioPhone");
+        if (audioPhone && audioPhone.srcObject && audioPhone.srcObject.getTracks()) {
+            audioPhone.srcObject.getTracks().forEach((track) => track.stop());
         }
         this.dataChunks = []
 
@@ -1101,6 +1135,52 @@ class Panel extends React.Component {
         })
     }
 
+    /**
+     * 开启语音电话
+     */
+    startAudioOnline = () => {
+        if (!this.checkMediaPermisssion()) {
+            return;
+        }
+
+        this.setState({
+            onlineType: 2,
+            isRecord: true,
+            rtcType: 'offer'
+        })
+
+        navigator.mediaDevices
+            .getUserMedia({
+                audio: true,
+                video: false,
+            }).then((stream) => {
+                stream.getTracks().forEach(track => {
+                    peer.addTrack(track, stream);
+                });
+
+                // 一定注意：需要将该动作，放在这里面，即流获取成功后，再进行offer创建。不然不能获取到流，从而不能播放视频。
+                peer.createOffer()
+                    .then(offer => {
+                        peer.setLocalDescription(offer);
+                        let data = {
+                            fromUsername: localStorage.username,
+                            from: this.state.fromUser,
+                            to: this.state.toUser,
+                            messageType: this.state.messageType, // 消息类型，1.单聊 2.群聊
+                            contentType: Constant.AUDIO_ONLINE,  // 消息内容类型
+                            content: JSON.stringify(offer),
+                            type: Constant.MESSAGE_TRANS_TYPE,   // 消息传输类型
+                        }
+                        let message = protobuf.lookup("protocol.Message")
+                        const messagePB = message.create(data)
+                        socket.send(message.encode(messagePB).finish())
+                    });
+            });
+
+        this.setState({
+            mediaPanelDrawerVisible: true
+        })
+    }
 
     /**
      * 屏幕共享
@@ -1282,11 +1362,10 @@ class Panel extends React.Component {
                             <Tooltip title="语音聊天">
                                 <Button
                                     shape="circle"
-                                    onClick={this.startVideoOnline}
+                                    onClick={this.startAudioOnline}
                                     style={{ marginRight: 10 }}
                                     icon={<PhoneOutlined />}
-                                    // disabled={toUser === ''}
-                                    disabled
+                                    disabled={toUser === ''}
                                 />
                             </Tooltip>
                             <Tooltip title="视频聊天">
@@ -1384,6 +1463,7 @@ class Panel extends React.Component {
 
                     <img id="receiver" width={this.state.currentScreen.width} height="auto" alt="" />
                     <canvas id="canvas" width={this.state.currentScreen.width} height={this.state.currentScreen.height} />
+                    <audio id="audioPhone" autoPlay controls />
                 </Drawer>
             </>
         );
