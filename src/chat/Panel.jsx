@@ -1,78 +1,29 @@
 import React from 'react';
 import {
-    Comment, Avatar, Form, Button, List, Input, Row, Col, Badge,
-    Card,
+    Button,
+    Row,
+    Col,
     message,
-    Modal,
     Drawer,
-    Tag,
-    Popover,
     Tooltip,
 } from 'antd';
 import {
-    UserOutlined,
-    TeamOutlined,
-    MoreOutlined,
-    SyncOutlined,
-    FileAddOutlined,
-    VideoCameraAddOutlined,
-    AudioOutlined,
     PoweroffOutlined,
-    PhoneOutlined,
-    VideoCameraOutlined,
-    UngroupOutlined,
-    DesktopOutlined,
-    FileOutlined
+    FileOutlined,
 } from '@ant-design/icons';
-import InfiniteScroll from 'react-infinite-scroll-component';
 import moment from 'moment';
-import { axiosGet, axiosPostBody } from './util/Request';
 import * as Params from './common/param/Params'
 import * as Constant from './common/constant/Constant'
-import UserInfo from './component/UserInfo'
+import Center from './panel/center/index'
+import Left from './panel/left/index'
+import Right from './panel/right/index'
 
 import protobuf from './proto/proto'
-import Recorder from 'js-audio-recorder';
 import { connect } from 'react-redux'
-import { actions } from './redux/module/userInfo'
+import { actions } from './redux/module/panel'
 
 var socket = null;
 var peer = null;
-
-const { TextArea } = Input;
-
-const CommentList = ({ comments }) => (
-    <InfiniteScroll
-        dataLength={comments.length}
-        // next={loadMoreData}
-        // hasMore={comments.length < 50}
-        // loader={<Skeleton avatar paragraph={{ rows: 1 }} active />}
-        // endMessage={<Divider plain>It is all, nothing more 🤐</Divider>}
-        scrollableTarget="scrollableDiv"
-    >
-        <List
-            dataSource={comments}
-            // header={`${comments.length} ${comments.length > 1 ? 'replies' : 'reply'}`}
-            itemLayout="horizontal"
-            renderItem={props => <Comment {...props} />}
-        />
-    </InfiniteScroll>
-);
-
-const Editor = ({ onChange, onSubmit, submitting, value, toUser }) => (
-    <>
-        <Form.Item>
-            <TextArea rows={4} onChange={onChange} value={value} id="messageArea" />
-        </Form.Item>
-        <Form.Item>
-            <Button htmlType="submit" loading={submitting} onClick={onSubmit} type="primary" disabled={toUser === ''}>
-                Send
-            </Button>
-        </Form.Item>
-    </>
-);
-
-
 var lockConnection = false;
 
 var heartCheck = {
@@ -114,29 +65,9 @@ var heartCheck = {
 class Panel extends React.Component {
     constructor(props) {
         super(props)
+        localStorage.uuid = props.match.params.user;
         this.state = {
-            isRecord: false,
             onlineType: 1, // 在线视频或者音频： 1视频，2音频
-            user: {},
-            comments: [],
-            submitting: false,
-            value: '',
-            toUser: '',
-            toUsername: ' ',
-            fromUser: props.match.params.user,
-            hasUser: false,
-            queryUser: {
-                username: '',
-                nickname: '',
-            },
-            data: [
-
-            ],
-            messageType: 1,
-            menuType: 1,
-            drawerVisible: false,
-            mediaPanelDrawerVisible: false,
-            groupUsers: [],
             video: {
                 height: 400,
                 width: 540
@@ -154,103 +85,7 @@ class Panel extends React.Component {
     }
 
     componentDidMount() {
-        this.fetchUserDetails()
-        this.fetchUserList()
         this.connection()
-        this.bindParse()
-    }
-
-    /**
-     * 解析剪切板的文件
-     */
-    bindParse = () => {
-        document.getElementById("messageArea").addEventListener("paste", (e) => {
-            var data = e.clipboardData
-            if (!data.items) {
-                return;
-            }
-            var items = data.items
-
-            if (null == items || items.length <= 0) {
-                return;
-            }
-
-            let item = items[0]
-            if (item.kind !== 'file') {
-                return;
-            }
-            let blob = item.getAsFile()
-
-            let reader = new FileReader()
-            reader.readAsArrayBuffer(blob)
-
-            reader.onload = ((e) => {
-                let imgData = e.target.result
-
-                // 上传文件必须将ArrayBuffer转换为Uint8Array
-                let data = {
-                    fromUsername: localStorage.username,
-                    from: this.state.fromUser,
-                    to: this.state.toUser,
-                    messageType: this.state.messageType,
-                    content: this.state.value,
-                    contentType: 3,
-                    file: new Uint8Array(imgData)
-                }
-                let message = protobuf.lookup("protocol.Message")
-                const messagePB = message.create(data)
-                socket.send(message.encode(messagePB).finish())
-
-                this.appendImgToPanel(imgData)
-            })
-
-        }, false)
-    }
-
-    /**
-     * 本地上传后，将图片追加到聊天框
-     * @param {Arraybuffer类型图片}} imgData 
-     */
-    appendImgToPanel(imgData) {
-        // 将ArrayBuffer转换为base64进行展示
-        var binary = '';
-        var bytes = new Uint8Array(imgData);
-        var len = bytes.byteLength;
-        for (var i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        let base64String = `data:image/jpeg;base64,${window.btoa(binary)}`;
-
-        this.setState({
-            comments: [
-                ...this.state.comments,
-                {
-                    author: localStorage.username,
-                    avatar: this.state.user.avatar,
-                    content: <p><img src={base64String} alt="" width="150px" /></p>,
-                    datetime: moment().fromNow(),
-                },
-            ],
-        }, () => {
-            setTimeout(this.scrollToBottom(), 3000)
-        })
-    }
-
-    /**
-     * 获取用户详情
-     */
-    fetchUserDetails = () => {
-        axiosGet(Params.USER_URL + this.state.fromUser)
-            .then(response => {
-                let user = {
-                    ...response.data,
-                    avatar: Params.HOST + "/file/" + response.data.avatar
-                }
-                this.props.setUser(user)
-                this.setState({
-                    user: user,
-                })
-            });
     }
 
     /**
@@ -266,6 +101,8 @@ class Panel extends React.Component {
             heartCheck.start()
             console.log("connected")
             this.webrtcConnection()
+
+            this.props.setSocket(socket);
         }
         socket.onmessage = (message) => {
             heartCheck.start()
@@ -276,7 +113,7 @@ class Panel extends React.Component {
             reader.readAsArrayBuffer(message.data);
             reader.onload = ((event) => {
                 let messagePB = messageProto.decode(new Uint8Array(event.target.result))
-                if (this.state.toUser !== messagePB.from || messagePB.type === "heatbeat") {
+                if (this.props.chooseUser.toUser !== messagePB.from || messagePB.type === "heatbeat") {
                     return;
                 }
 
@@ -312,36 +149,33 @@ class Panel extends React.Component {
                     return;
                 }
 
-                let avatar = this.state.avatar
+                let avatar = this.props.chooseUser.avatar
                 if (messagePB.messageType === 2) {
-                    avatar = messagePB.avatar
+                    avatar = Params.HOST + "/file/" + messagePB.avatar
                 }
 
                 // 文件内容，录制的视频，语音内容
                 let content = this.getContentByType(messagePB.contentType, messagePB.url, messagePB.content)
-                this.setState({
-                    comments: [
-                        ...this.state.comments,
-                        {
-                            author: messagePB.fromUsername,
-                            avatar: avatar,
-                            content: <p>{content}</p>,
-                            datetime: moment().fromNow(),
-                        },
-                    ],
-                }, () => {
-                    setTimeout(this.scrollToBottom(), 3000)
-                })
+                let messageList = [
+                    ...this.props.messageList,
+                    {
+                        author: messagePB.fromUsername,
+                        avatar: avatar,
+                        content: <p>{content}</p>,
+                        datetime: moment().fromNow(),
+                    },
+                ];
+                this.props.setMessageList(messageList);
             })
         }
 
-        socket.onclose = (message) => {
+        socket.onclose = (_message) => {
             console.log("close and reconnect-->--->")
 
             this.reconnect()
         }
 
-        socket.onerror = (message) => {
+        socket.onerror = (_message) => {
             console.log("error----->>>>")
 
             this.reconnect()
@@ -357,24 +191,18 @@ class Panel extends React.Component {
          * @param {候选人信息} e 
          */
         peer.onicecandidate = (e) => {
+            console.log(this.state.rtcType + '_ice', e)
             if (e.candidate) {
                 // rtcType参数默认是对端值为answer，如果是发起端，会将值设置为offer
                 let candidate = {
                     type: this.state.rtcType + '_ice',
                     iceCandidate: e.candidate
                 }
-
-                let data = {
-                    fromUsername: localStorage.username,
-                    from: this.state.fromUser,
-                    to: this.state.toUser,
-                    messageType: this.state.messageType,
+                let message = {
                     content: JSON.stringify(candidate),
                     type: Constant.MESSAGE_TRANS_TYPE,
                 }
-                let message = protobuf.lookup("protocol.Message")
-                const messagePB = message.create(data)
-                socket.send(message.encode(messagePB).finish())
+                this.sendMessage(message);
             }
 
         };
@@ -384,6 +212,7 @@ class Panel extends React.Component {
          * @param {包含语音视频流} e 
          */
         peer.ontrack = (e) => {
+            console.log(e)
             if (e && e.streams) {
                 if (this.state.onlineType === 1) {
                     let remoteVideo = document.getElementById("remoteVideo");
@@ -402,12 +231,12 @@ class Panel extends React.Component {
      */
     dealWebRtcMessage = (messagePB) => {
         const { type, sdp, iceCandidate } = JSON.parse(messagePB.content);
-
+        console.log(type)
         if (type === "answer") {
             const offerSdp = new RTCSessionDescription({ type, sdp });
-            peer.setRemoteDescription(offerSdp)
+            this.props.peer.localPeer.setRemoteDescription(offerSdp)
         } else if (type === "answer_ice") {
-            peer.addIceCandidate(iceCandidate)
+            this.props.peer.localPeer.addIceCandidate(iceCandidate)
         } else if (type === "offer_ice") {
             peer.addIceCandidate(iceCandidate)
         } else if (type === "offer") {
@@ -446,17 +275,13 @@ class Panel extends React.Component {
                         .then(() => {
                             peer.createAnswer().then(answer => {
                                 peer.setLocalDescription(answer)
-                                let data = {
-                                    fromUsername: localStorage.username,
-                                    from: this.state.fromUser,
-                                    to: this.state.toUser,
-                                    messageType: messagePB.contentType,
+
+                                let message = {
                                     content: JSON.stringify(answer),
                                     type: Constant.MESSAGE_TRANS_TYPE,
+                                    messageType: messagePB.contentType
                                 }
-                                let message = protobuf.lookup("protocol.Message")
-                                const messagePBNew = message.create(data)
-                                socket.send(message.encode(messagePBNew).finish())
+                                this.sendMessage(message);
                             })
                         });
                 });
@@ -498,264 +323,21 @@ class Panel extends React.Component {
     }
 
     /**
-     * 获取好友列表
-     */
-    fetchUserList = () => {
-        this.setState({
-            menuType: 1,
-        })
+      * 发送消息
+      * @param {消息内容} messageData 
+      */
+    sendMessage = (messageData) => {
         let data = {
-            uuid: this.state.fromUser
-        }
-        axiosGet(Params.USER_LIST_URL, data)
-            .then(response => {
-                let users = response.data
-                let data = []
-                for (var index in users) {
-                    let d = {
-                        username: users[index].username,
-                        uuid: users[index].uuid,
-                        messageType: 1,
-                        avatar: Params.HOST + "/file/" + users[index].avatar,
-                    }
-                    data.push(d)
-                }
-
-                this.setState({
-                    data: data
-                })
-            })
-    }
-
-    /**
-     * 获取群组列表
-     */
-    fetchGroupList = () => {
-        this.setState({
-            menuType: 2,
-        })
-        let data = {
-            uuid: this.state.fromUser
-        }
-        axiosGet(Params.GROUP_LIST_URL + "/" + this.state.fromUser, data)
-            .then(response => {
-                let users = response.data
-                let data = []
-                for (var index in users) {
-                    let d = {
-                        username: users[index].name,
-                        uuid: users[index].uuid,
-                        messageType: 2,
-                    }
-                    data.push(d)
-                }
-
-                this.setState({
-                    data: data
-                })
-            })
-    }
-
-    /**
-     * 发送消息或者接受消息后，滚动到最后
-     */
-    scrollToBottom = () => {
-        let div = document.getElementById("scrollableDiv")
-        div.scrollTop = div.scrollHeight
-    }
-
-    /**
-     * 发送消息
-     * @returns 
-     */
-    handleSubmit = () => {
-        if (!this.state.value) {
-            return;
-        }
-
-        this.setState({
-            submitting: true,
-        });
-
-        let data = {
+            ...messageData,
+            messageType: this.props.chooseUser.messageType, // 消息类型，1.单聊 2.群聊
             fromUsername: localStorage.username,
-            from: this.state.fromUser,
-            to: this.state.toUser,
-            messageType: this.state.messageType,
-            content: this.state.value,
-            contentType: 1,
+            from: localStorage.uuid,
+            to: this.props.chooseUser.toUser,
         }
         let message = protobuf.lookup("protocol.Message")
         const messagePB = message.create(data)
 
         socket.send(message.encode(messagePB).finish())
-
-        this.setState({
-            submitting: false,
-            value: '',
-            comments: [
-                ...this.state.comments,
-                {
-                    author: localStorage.username,
-                    avatar: this.state.user.avatar,
-                    content: <p>{this.state.value}</p>,
-                    datetime: moment().fromNow(),
-                },
-            ],
-        }, () => {
-            this.scrollToBottom()
-        })
-    };
-
-    /**
-     * 每次输入框输入后，将值存放在state中
-     * @param {事件} e 
-     */
-    handleChange = e => {
-        this.setState({
-            value: e.target.value,
-        });
-    };
-
-    /**
-     * 切换用户聊天，获取用户的基本信息
-     * @param {事件} e 
-     */
-    userChange = (e) => {
-        this.setState({
-            toUser: e.target.value
-        })
-    }
-
-    /**
-     * 选择用户，获取对应的消息
-     * @param {选择的用户} value 
-     */
-    chooseUser = (value) => {
-        this.setState({
-            toUser: value.uuid,
-            toUsername: value.username,
-            messageType: value.messageType,
-            avatar: value.avatar
-        }, () => {
-            this.fetchMessages()
-        })
-    }
-
-    /**
-     * 搜索用户
-     * @param {*} value 
-     * @param {*} _event 
-     * @returns 
-     */
-    searchUser = (value, _event) => {
-        if (null === value || "" === value) {
-            return
-        }
-
-        let data = {
-            name: value
-        }
-        axiosGet(Params.USER_NAME_URL, data)
-            .then(response => {
-                let data = response.data
-                if (data.user.username === "" && data.group.name === "") {
-                    message.error("未查找到群或者用户")
-                    return
-                }
-                let queryUser = {
-                    username: data.user.username,
-                    nickname: data.user.nickname,
-
-                    groupUuid: data.group.uuid,
-                    groupName: data.group.name,
-                }
-                this.setState({
-                    hasUser: true,
-                    queryUser: queryUser
-                });
-            });
-    }
-
-    showModal = () => {
-        this.setState({
-            hasUser: true
-        });
-    };
-
-    handleOk = () => {
-        let data = {
-            uuid: this.state.fromUser,
-            friendUsername: this.state.queryUser.username
-        }
-        axiosPostBody(Params.USER_FRIEND_URL, data)
-            .then(_response => {
-                message.success("添加成功")
-                this.fetchUserList()
-                this.setState({
-                    hasUser: false
-                });
-            });
-    };
-
-    joinGroup = () => {
-        // /group/join/:userUid/:groupUuid
-        axiosPostBody(Params.GROUP_JOIN_URL + this.state.fromUser + "/" + this.state.queryUser.groupUuid)
-            .then(_response => {
-                message.success("添加成功")
-                this.fetchUserList()
-                this.setState({
-                    hasUser: false
-                });
-            });
-    }
-
-    handleCancel = () => {
-        this.setState({
-            hasUser: false
-        });
-    };
-
-    /**
-     * 获取消息
-     */
-    fetchMessages = () => {
-        let uuid = this.state.fromUser
-        if (this.state.messageType === 2) {
-            uuid = this.state.toUser
-        }
-        let data = {
-            Uuid: uuid,
-            FriendUsername: this.state.toUsername,
-            MessageType: this.state.messageType
-        }
-        axiosGet(Params.MESSAGE_URL, data)
-            .then(response => {
-                let comments = []
-                let data = response.data
-                if (null == data) {
-                    data = []
-                }
-                for (var i = 0; i < data.length; i++) {
-                    let contentType = data[i].contentType
-                    let content = this.getContentByType(contentType, data[i].url, data[i].content)
-
-                    let comment = {
-                        author: data[i].fromUsername,
-                        avatar: Params.HOST + "/file/" + data[i].avatar,
-                        content: <p>{content}</p>,
-                        datetime: moment(data[i].createAt).fromNow(),
-                    }
-                    comments.push(comment)
-                }
-
-                this.setState({
-                    comments: comments
-                }, () => {
-                    this.scrollToBottom()
-                    setTimeout(this.scrollToBottom(), 5000)
-                })
-            });
     }
 
     /**
@@ -779,332 +361,13 @@ class Panel extends React.Component {
     }
 
     /**
-     * 获取群聊信息，群成员列表
-     */
-    chatDetails = () => {
-        axiosGet(Params.GROUP_USER_URL + this.state.toUser)
-            .then(response => {
-                if (null == response.data) {
-                    return;
-                }
-                this.setState({
-                    drawerVisible: true,
-                    groupUsers: response.data
-                })
-            });
-
-    }
-    drawerOnClose = () => {
-        this.setState({
-            drawerVisible: false,
-        })
-    }
-
-    /**
-     * 上传文件
-     * @param {事件} e 
-     * @returns 
-     */
-    uploadFile = (e) => {
-        let files = e.target.files
-        if (!files || !files[0]) {
-            return;
-        }
-        let fileName = files[0].name
-        if (null == fileName) {
-            message.error("文件无名称")
-            return
-        }
-        let index = fileName.lastIndexOf('.');
-        let fileSuffix = null;
-        if (index >= 0) {
-            fileSuffix = fileName.substring(index + 1);
-        }
-
-
-        let reader = new FileReader()
-        reader.onload = ((event) => {
-            let file = event.target.result
-            // Uint8数组可以直观的看到ArrayBuffer中每个字节（1字节 == 8位）的值。一般我们要将ArrayBuffer转成Uint类型数组后才能对其中的字节进行存取操作。
-            // 上传文件必须转换为Uint8Array
-            var u8 = new Uint8Array(file);
-            let message = protobuf.lookup("protocol.Message")
-
-            let data = {
-                fromUsername: localStorage.username,
-                from: this.state.fromUser,
-                to: this.state.toUser,
-                messageType: this.state.messageType,
-                content: this.state.value,
-                contentType: 3,
-                fileSuffix: fileSuffix,
-                file: u8
-            }
-            const messagePB = message.create(data)
-            socket.send(message.encode(messagePB).finish())
-
-            if (["jpeg", "jpg", "png", "gif", "tif", "bmp", "dwg"].indexOf(fileSuffix) !== -1) {
-                this.appendImgToPanel(file)
-            } else {
-                this.appendFile()
-            }
-
-        })
-        reader.readAsArrayBuffer(files[0])
-    }
-
-    appendFile = () => {
-        this.setState({
-            comments: [
-                ...this.state.comments,
-                {
-                    author: localStorage.username,
-                    avatar: this.state.user.avatar,
-                    content: <p><FileOutlined style={{ fontSize: 38 }} /></p>,
-                    datetime: moment().fromNow(),
-                },
-            ],
-        }, () => {
-            this.scrollToBottom()
-        })
-    }
-
-    /**
-     * 开始录制音频
-     */
-    audiorecorder = null;
-    hasAudioPermission = true;
-    startAudio = () => {
-        this.setState({
-            isRecord: true
-        })
-        this.audiorecorder = new Recorder()
-        this.hasAudioPermission = true;
-        this.audiorecorder
-            .start()
-            .then(() => {
-                console.log("start audio...")
-            }, (_error) => {
-                this.hasAudioPermission = false;
-                message.error("录音权限获取失败！")
-            })
-    }
-
-    /**
-     * 停止录制音频
-     */
-    stopAudio = () => {
-        this.setState({
-            isRecord: false
-        })
-        if (!this.hasAudioPermission) {
-            return;
-        }
-        let blob = this.audiorecorder.getWAVBlob();
-        this.audiorecorder.stop()
-        this.audiorecorder.destroy()
-            .then(() => {
-                this.audiorecorder = null;
-            });
-        this.audiorecorder = null;
-
-        let reader = new FileReader()
-        reader.readAsArrayBuffer(blob)
-
-        reader.onload = ((e) => {
-            let imgData = e.target.result
-
-            // 上传文件必须将ArrayBuffer转换为Uint8Array
-            let data = {
-                fromUsername: localStorage.username,
-                from: this.state.fromUser,
-                to: this.state.toUser,
-                messageType: this.state.messageType,
-                content: this.state.value,
-                contentType: 3,
-                fileSuffix: "wav",
-                file: new Uint8Array(imgData)
-            }
-            let message = protobuf.lookup("protocol.Message")
-            const messagePB = message.create(data)
-            socket.send(message.encode(messagePB).finish())
-        })
-
-        this.setState({
-            comments: [
-                ...this.state.comments,
-                {
-                    author: localStorage.username,
-                    avatar: this.state.user.avatar,
-                    content: <p><audio src={window.URL.createObjectURL(blob)} controls autoPlay={false} preload="auto" /></p>,
-                    datetime: moment().fromNow(),
-                },
-            ],
-        }, () => {
-            this.scrollToBottom()
-        })
-    }
-
-
-    /**
-     * 当按下按钮时录制视频
-     */
-    dataChunks = [];
-    recorder = null;
-    hasVideoPermission = true;
-    startVideoRecord = (e) => {
-        this.hasVideoPermission = true;
-        navigator.getUserMedia = navigator.getUserMedia ||
-            navigator.webkitGetUserMedia ||
-            navigator.mozGetUserMedia ||
-            navigator.msGetUserMedia; //获取媒体对象（这里指摄像头）
-        if (!this.checkMediaPermisssion()) {
-            this.hasVideoPermission = false;
-            return;
-        }
-
-        let preview = document.getElementById("preview");
-        this.setState({
-            isRecord: true
-        })
-
-        navigator.mediaDevices
-            .getUserMedia({
-                audio: true,
-                video: true,
-            }).then((stream) => {
-                preview.srcObject = stream;
-                this.recorder = new MediaRecorder(stream);
-
-                this.recorder.ondataavailable = (event) => {
-                    let data = event.data;
-                    this.dataChunks.push(data);
-                };
-                this.recorder.start(1000);
-            });
-    }
-
-    /**
-     * 松开按钮发送视频到服务器
-     * @param {事件} e 
-     */
-    stopVideoRecord = (e) => {
-        this.setState({
-            isRecord: false
-        })
-        if (!this.hasVideoPermission) {
-            return;
-        }
-
-        let recordedBlob = new Blob(this.dataChunks, { type: "video/webm" });
-
-        let reader = new FileReader()
-        reader.readAsArrayBuffer(recordedBlob)
-
-        reader.onload = ((e) => {
-            let fileData = e.target.result
-
-            // 上传文件必须将ArrayBuffer转换为Uint8Array
-            let data = {
-                fromUsername: localStorage.username,
-                from: this.state.fromUser,
-                to: this.state.toUser,
-                messageType: this.state.messageType,
-                content: this.state.value,
-                contentType: 3,
-                fileSuffix: "webm",
-                file: new Uint8Array(fileData)
-            }
-            let message = protobuf.lookup("protocol.Message")
-            const messagePB = message.create(data)
-            socket.send(message.encode(messagePB).finish())
-        })
-
-        this.setState({
-            comments: [
-                ...this.state.comments,
-                {
-                    author: localStorage.username,
-                    avatar: this.state.user.avatar,
-                    content: <p><video src={URL.createObjectURL(recordedBlob)} controls autoPlay={false} preload="auto" width='200px' /></p>,
-                    datetime: moment().fromNow(),
-                },
-            ],
-        }, () => {
-            this.scrollToBottom()
-        })
-        if (this.recorder) {
-            this.recorder.stop()
-            this.recorder = null
-        }
-        let preview = document.getElementById("preview");
-        if (preview.srcObject && preview.srcObject.getTracks()) {
-            preview.srcObject.getTracks().forEach((track) => track.stop());
-        }
-        this.dataChunks = []
-    }
-
-    interval = null;
-    /**
-     * 开启视频电话
-     */
-    startVideoOnline = () => {
-        if (!this.checkMediaPermisssion()) {
-            return;
-        }
-
-        let preview = document.getElementById("preview1");
-        this.setState({
-            onlineType: 1,
-            isRecord: true,
-            rtcType: 'offer'
-        })
-
-        navigator.mediaDevices
-            .getUserMedia({
-                audio: true,
-                video: true,
-            }).then((stream) => {
-                preview.srcObject = stream;
-                stream.getTracks().forEach(track => {
-                    peer.addTrack(track, stream);
-                });
-
-                // 一定注意：需要将该动作，放在这里面，即流获取成功后，再进行offer创建。不然不能获取到流，从而不能播放视频。
-                peer.createOffer()
-                    .then(offer => {
-                        peer.setLocalDescription(offer);
-                        let data = {
-                            fromUsername: localStorage.username,
-                            from: this.state.fromUser,
-                            to: this.state.toUser,
-                            messageType: this.state.messageType,
-                            contentType: Constant.VIDEO_ONLINE,
-                            content: JSON.stringify(offer),
-                            type: Constant.MESSAGE_TRANS_TYPE,
-                        }
-                        let message = protobuf.lookup("protocol.Message")
-                        const messagePB = message.create(data)
-                        socket.send(message.encode(messagePB).finish())
-                    });
-            });
-
-        this.setState({
-            mediaPanelDrawerVisible: true
-        })
-    }
-
-    /**
      * 停止视频电话,屏幕共享
      */
     stopVideoOnline = () => {
         this.setState({
             isRecord: false
         })
-        if (this.recorder) {
-            this.recorder.stop()
-            this.recorder = null
-        }
+
         let preview1 = document.getElementById("preview1");
         if (preview1 && preview1.srcObject && preview1.srcObject.getTracks()) {
             preview1.srcObject.getTracks().forEach((track) => track.stop());
@@ -1121,10 +384,6 @@ class Panel extends React.Component {
         }
         this.dataChunks = []
 
-        if (this.interval) {
-            clearInterval(this.interval)
-        }
-
         // 停止视频或者屏幕共享时，将画布最小
         let currentScreen = {
             width: 0,
@@ -1136,319 +395,36 @@ class Panel extends React.Component {
     }
 
     /**
-     * 开启语音电话
-     */
-    startAudioOnline = () => {
-        if (!this.checkMediaPermisssion()) {
-            return;
-        }
-
-        this.setState({
-            onlineType: 2,
-            isRecord: true,
-            rtcType: 'offer'
-        })
-
-        navigator.mediaDevices
-            .getUserMedia({
-                audio: true,
-                video: false,
-            }).then((stream) => {
-                stream.getTracks().forEach(track => {
-                    peer.addTrack(track, stream);
-                });
-
-                // 一定注意：需要将该动作，放在这里面，即流获取成功后，再进行offer创建。不然不能获取到流，从而不能播放视频。
-                peer.createOffer()
-                    .then(offer => {
-                        peer.setLocalDescription(offer);
-                        let data = {
-                            fromUsername: localStorage.username,
-                            from: this.state.fromUser,
-                            to: this.state.toUser,
-                            messageType: this.state.messageType, // 消息类型，1.单聊 2.群聊
-                            contentType: Constant.AUDIO_ONLINE,  // 消息内容类型
-                            content: JSON.stringify(offer),
-                            type: Constant.MESSAGE_TRANS_TYPE,   // 消息传输类型
-                        }
-                        let message = protobuf.lookup("protocol.Message")
-                        const messagePB = message.create(data)
-                        socket.send(message.encode(messagePB).finish())
-                    });
-            });
-
-        this.setState({
-            mediaPanelDrawerVisible: true
-        })
-    }
-
-    /**
-     * 屏幕共享
-     */
-    startShareOnline = () => {
-        navigator.getUserMedia = navigator.getUserMedia ||
-            navigator.webkitGetUserMedia ||
-            navigator.mozGetUserMedia ||
-            navigator.msGetUserMedia; //获取媒体对象（这里指摄像头）
-        if (!this.checkMediaPermisssion()) {
-            return;
-        }
-
-        let preview = document.getElementById("preview1");
-        this.setState({
-            isRecord: true,
-            mediaPanelDrawerVisible: true
-        })
-
-        navigator.mediaDevices
-            .getDisplayMedia({
-                video: true,
-            }).then((stream) => {
-                preview.srcObject = stream;
-            });
-
-
-        var canvas = document.getElementById("canvas");
-        var ctx = canvas.getContext('2d');
-        this.interval = window.setInterval(() => {
-            let width = this.state.share.width
-            let height = this.state.share.height
-            let currentScreen = {
-                width: width,
-                height: height
-            }
-            this.setState({
-                currentScreen: currentScreen
-            })
-            ctx.drawImage(preview, 0, 0, width, height);
-            let data = {
-                fromUsername: localStorage.username,
-                from: this.state.fromUser,
-                to: this.state.toUser,
-                messageType: this.state.messageType,
-                content: canvas.toDataURL("image/jpeg", 0.5),
-                contentType: 9,
-            }
-            let message = protobuf.lookup("protocol.Message")
-            const messagePB = message.create(data)
-            socket.send(message.encode(messagePB).finish())
-        }, 60);
-    }
-
-    /**
-     * 隐藏真正的文件上传控件，通过按钮模拟点击文件上传控件
-     */
-    clickFile = () => {
-        let file = document.getElementById("file")
-        file.click();
-    }
-
-    /**
      * 显示视频或者音频的面板
      */
     mediaPanelDrawerOnClose = () => {
-        this.setState({
-            mediaPanelDrawerVisible: false,
-        })
-    }
-    showMediaPanel = () => {
-        this.setState({
-            mediaPanelDrawerVisible: true,
-        })
+        let media = {
+            ...this.props.media,
+            showMediaPanel: false,
+        }
+        this.props.setMedia(media)
     }
 
     render() {
-        const { comments, submitting, value, toUser } = this.state;
 
         return (
             <>
                 <Row style={{ paddingTop: 20, paddingBottom: 40 }}>
                     <Col span={2} style={{ borderRight: '1px solid #f0f0f0', textAlign: 'center' }}>
-                        <p style={{ marginTop: 15 }}>
-                            <UserInfo history={this.props.history} />
-                        </p>
-                        <p >
-                            <Button icon={<UserOutlined />} size="large" type='link' disabled={this.state.menuType === 1} onClick={this.fetchUserList}>
-                            </Button>
-                        </p>
-                        <p onClick={this.fetchGroupList}>
-                            <Button icon={<TeamOutlined />} size="large" type='link' disabled={this.state.menuType === 2}>
-                            </Button>
-                        </p>
+                        <Left history={this.props.history} />
                     </Col>
 
                     <Col span={4} style={{ borderRight: '1px solid #f0f0f0' }}>
-                        <Input.Group compact>
-                            <Input.Search allowClear style={{ width: '100%' }} onSearch={this.searchUser} />
-                        </Input.Group>
-                        <List
-                            itemLayout="horizontal"
-                            dataSource={this.state.data}
-                            renderItem={item => (
-                                <List.Item>
-                                    <List.Item.Meta
-                                        style={{ paddingLeft: 30 }}
-                                        onClick={() => this.chooseUser(item)}
-                                        avatar={<Avatar src={item.avatar} />}
-                                        title={item.username}
-                                        description=""
-                                    />
-                                </List.Item>
-                            )}
-                        />
+                        <Center />
                     </Col>
 
                     <Col offset={1} span={16}>
-
-                        <Badge.Ribbon text={<MoreOutlined onClick={this.chatDetails} />}>
-
-                            <Card title={this.state.toUsername} size="larg">
-                                <div
-                                    id="scrollableDiv"
-                                    style={{
-                                        height: 450,
-                                        overflow: 'auto',
-                                        padding: '0 16px',
-                                        border: '0px solid rgba(140, 140, 140, 0.35)',
-                                    }}
-                                >
-                                    {comments.length > 0 && <CommentList comments={comments} />}
-
-                                </div>
-                            </Card>
-
-                        </Badge.Ribbon>
-                        <div>
-                            <br />
-                            <Tooltip title="上传图片或者文件">
-                                <Button
-                                    onClick={this.clickFile}
-                                    shape="circle"
-                                    style={{ marginRight: 10 }}
-                                    icon={<FileAddOutlined />}
-                                    disabled={toUser === ''}
-                                />
-                            </Tooltip>
-                            <Tooltip title="发送语音">
-                                <input type='file' id='file' onChange={this.uploadFile} hidden disabled={toUser === ''} />
-                                <Button
-                                    shape="circle"
-                                    onMouseDown={this.startAudio}
-                                    onMouseUp={this.stopAudio}
-                                    onTouchStart={this.startAudio}
-                                    onTouchEnd={this.stopAudio}
-                                    style={{ marginRight: 10 }}
-                                    icon={<AudioOutlined />}
-                                    disabled={toUser === ''}
-                                />
-                            </Tooltip>
-
-                            <Tooltip placement="bottom" title="录制视频">
-                                <Popover content={<video id="preview" height="250px" width="auto" autoPlay muted />} title="视频">
-                                    <Button
-                                        shape="circle"
-                                        onMouseDown={this.startVideoRecord}
-                                        onMouseUp={this.stopVideoRecord}
-                                        onTouchStart={this.startVideoRecord}
-                                        onTouchEnd={this.stopVideoRecord}
-                                        style={{ marginRight: 10 }}
-                                        icon={<VideoCameraAddOutlined />}
-                                        disabled={toUser === ''}
-                                    />
-                                </Popover>
-                            </Tooltip>
-
-
-                            <Tooltip title="语音聊天">
-                                <Button
-                                    shape="circle"
-                                    onClick={this.startAudioOnline}
-                                    style={{ marginRight: 10 }}
-                                    icon={<PhoneOutlined />}
-                                    disabled={toUser === ''}
-                                />
-                            </Tooltip>
-                            <Tooltip title="视频聊天">
-                                <Button
-                                    shape="circle"
-                                    onClick={this.startVideoOnline}
-                                    style={{ marginRight: 10 }}
-                                    icon={<VideoCameraOutlined />} disabled={toUser === ''}
-                                />
-                            </Tooltip>
-                            <Tooltip title="屏幕共享">
-                                <Button
-                                    shape="circle"
-                                    onClick={this.startShareOnline}
-                                    style={{ marginRight: 10 }}
-                                    icon={<DesktopOutlined />} disabled={toUser === ''}
-                                />
-                            </Tooltip>
-                            <Tooltip title="结束视频语音">
-                                <Button
-                                    shape="circle"
-                                    onClick={this.stopVideoOnline}
-                                    style={{ marginRight: 10 }}
-                                    icon={<PoweroffOutlined />}
-                                />
-                            </Tooltip>
-                            <Tooltip title="显示视频面板">
-                                <Button
-                                    shape="circle"
-                                    onClick={this.showMediaPanel}
-                                    style={{ marginRight: 10 }}
-                                    icon={<UngroupOutlined />}
-                                />
-                            </Tooltip>
-
-
-                            <Tag icon={<SyncOutlined spin />} color="processing" hidden={!this.state.isRecord}>
-                                录制中
-                            </Tag>
-                        </div>
-                        <Comment
-                            content={
-                                <Editor
-                                    onChange={this.handleChange}
-                                    onSubmit={this.handleSubmit}
-                                    submitting={submitting}
-                                    value={value}
-                                    toUser={this.state.toUser}
-                                />
-                            }
-                        />
-
+                        <Right history={this.props.history} />
                     </Col>
                 </Row>
 
-                <Modal title="用户信息" visible={this.state.hasUser} onCancel={this.handleCancel} okText="添加用户" footer={null}>
-                    <p>用户名：{this.state.queryUser.username}</p>
-                    <p>昵称：{this.state.queryUser.nickname}</p>
-                    <Button type='primary' onClick={this.handleOk} disabled={this.state.queryUser.username == null || this.state.queryUser.username === ''}>添加用户</Button>
-                    <br /><br /><hr /><br /><br />
 
-                    <p>群信息：{this.state.queryUser.groupName}</p>
-                    <Button type='primary' onClick={this.joinGroup} disabled={this.state.queryUser.groupUuid == null || this.state.queryUser.groupUuid === ''}>添加群</Button>
-                </Modal>
-
-                <Drawer title="成员列表" placement="right" onClose={this.drawerOnClose} visible={this.state.drawerVisible}>
-                    <List
-                        itemLayout="horizontal"
-                        dataSource={this.state.groupUsers}
-                        renderItem={item => (
-                            <List.Item>
-                                <List.Item.Meta
-                                    style={{ paddingLeft: 30 }}
-                                    avatar={<Avatar src={Params.HOST + "/file/" + item.avatar} />}
-                                    title={item.username}
-                                    description=""
-                                />
-                            </List.Item>
-                        )}
-                    />
-                </Drawer>
-
-                <Drawer width='820px' forceRender={true} title="媒体面板" placement="right" onClose={this.mediaPanelDrawerOnClose} visible={this.state.mediaPanelDrawerVisible}>
+                <Drawer width='820px' forceRender={true} title="媒体面板" placement="right" onClose={this.mediaPanelDrawerOnClose} visible={this.props.media.showMediaPanel}>
                     <Tooltip title="结束视频语音">
                         <Button
                             shape="circle"
@@ -1473,12 +449,18 @@ class Panel extends React.Component {
 function mapStateToProps(state) {
     return {
         user: state.userInfoReducer.user,
+        media: state.panelReducer.media,
+        messageList: state.panelReducer.messageList,
+        chooseUser: state.panelReducer.chooseUser,
+        peer: state.panelReducer.peer,
     }
 }
 
 function mapDispatchToProps(dispatch) {
     return {
-        setUser: (data) => dispatch(actions.setUser(data)),
+        setMessageList: (data) => dispatch(actions.setMessageList(data)),
+        setSocket: (data) => dispatch(actions.setSocket(data)),
+        setMedia: (data) => dispatch(actions.setMedia(data)),
     }
 }
 

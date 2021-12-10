@@ -11,8 +11,9 @@ import {
 import { LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { connect } from 'react-redux'
-import { actions } from '../redux/module/userInfo'
-import * as Params from '../common/param/Params'
+import { actions } from '../../../redux/module/userInfo'
+import * as Params from '../../../common/param/Params'
+import { axiosGet } from '../../../util/Request';
 
 function getBase64(img, callback) {
     const reader = new FileReader();
@@ -48,7 +49,21 @@ class UserInfo extends React.Component {
     }
 
     componentDidMount() {
+        this.fetchUserDetails();
+    }
 
+    /**
+     * 获取用户详情
+     */
+    fetchUserDetails = () => {
+        axiosGet(Params.USER_URL + localStorage.uuid)
+            .then(response => {
+                let user = {
+                    ...response.data,
+                    avatar: Params.HOST + "/file/" + response.data.avatar
+                }
+                this.props.setUser(user)
+            });
     }
 
     modifyAvatar = () => {
@@ -77,7 +92,7 @@ class UserInfo extends React.Component {
             if (response.code !== 0) {
                 message.error(info.file.response.msg)
             }
-            
+
             let user = {
                 ...this.props.user,
                 avatar: Params.HOST + "/file/" + info.file.response.data
@@ -131,7 +146,7 @@ class UserInfo extends React.Component {
                         action={Params.FILE_URL}
                         beforeUpload={beforeUpload}
                         onChange={this.handleChange}
-                        data={{uuid: this.props.user.uuid}}
+                        data={{ uuid: this.props.user.uuid }}
                     >
                         {imageUrl ? <img src={imageUrl} alt="avatar" style={{ width: '100%' }} /> : uploadButton}
                     </Upload>
