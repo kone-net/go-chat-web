@@ -70,3 +70,9 @@ https://github.com/kone-net/go-chat-web
 * 屏幕共享
 ![screen-share](/public/screenshot/screen-share.png)
 
+## 分支说明
+one-file分支：
+该分支是所有逻辑都在一个文件实现，包括语音，文字，图片，视频消息，视频通话，语音电话，屏幕共享。
+main分支：
+是将各个部分进行拆分。将Panel拆分成，左、中、右。又将右边的发送文件，图片，文件拆分成更小的组件。
+

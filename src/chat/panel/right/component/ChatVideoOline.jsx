@@ -19,17 +19,25 @@ class ChatVideoOline extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-
+            mediaPanelDrawerVisible: false,
         }
     }
 
     componentDidMount() {
+        // const configuration = {
+        //     iceServers: [{
+        //         "url": "stun:23.21.150.121"
+        //     }, {
+        //         "url": "stun:stun.l.google.com:19302"
+        //     }]
+        // };
         localPeer = new RTCPeerConnection();
         let peer = {
             ...this.props.peer,
             localPeer: localPeer
         }
         this.props.setPeer(peer);
+        this.webrtcConnection();
     }
     /**
      * 开启视频电话
@@ -38,28 +46,22 @@ class ChatVideoOline extends React.Component {
         if (!this.props.checkMediaPermisssion()) {
             return;
         }
-        this.webrtcConnection();
-        let preview = document.getElementById("preview");
-        this.setState({
-            onlineType: 1,
-            rtcType: 'offer'
-        })
+        let preview = document.getElementById("localPreviewSender");
 
         navigator.mediaDevices
             .getUserMedia({
                 audio: true,
                 video: true,
             }).then((stream) => {
-                console.log(stream)
                 preview.srcObject = stream;
                 stream.getTracks().forEach(track => {
-                    this.props.peer.localPeer.addTrack(track, stream);
+                    localPeer.addTrack(track, stream);
                 });
 
                 // 一定注意：需要将该动作，放在这里面，即流获取成功后，再进行offer创建。不然不能获取到流，从而不能播放视频。
-                this.props.peer.localPeer.createOffer()
+                localPeer.createOffer()
                     .then(offer => {
-                        this.props.peer.localPeer.setLocalDescription(offer);
+                        localPeer.setLocalDescription(offer);
                         let data = {
                             contentType: Constant.VIDEO_ONLINE,
                             content: JSON.stringify(offer),
@@ -79,13 +81,11 @@ class ChatVideoOline extends React.Component {
     */
     webrtcConnection = () => {
 
-
         /**
          * 对等方收到ice信息后，通过调用 addIceCandidate 将接收的候选者信息传递给浏览器的ICE代理。
          * @param {候选人信息} e 
          */
         localPeer.onicecandidate = (e) => {
-            console.log(e)
             if (e.candidate) {
                 // rtcType参数默认是对端值为answer，如果是发起端，会将值设置为offer
                 let candidate = {
@@ -107,7 +107,7 @@ class ChatVideoOline extends React.Component {
          */
         localPeer.ontrack = (e) => {
             if (e && e.streams) {
-                let remoteVideo = document.getElementById("remoteVideo");
+                let remoteVideo = document.getElementById("remoteVideoSender");
                 remoteVideo.srcObject = e.streams[0];
             }
         };
@@ -117,15 +117,21 @@ class ChatVideoOline extends React.Component {
      * 停止视频电话,屏幕共享
      */
     stopVideoOnline = () => {
-        let preview = document.getElementById("preview");
+        let preview = document.getElementById("localPreviewSender");
         if (preview && preview.srcObject && preview.srcObject.getTracks()) {
             preview.srcObject.getTracks().forEach((track) => track.stop());
         }
 
-        let remoteVideo = document.getElementById("remoteVideo");
+        let remoteVideo = document.getElementById("remoteVideoSender");
         if (remoteVideo && remoteVideo.srcObject && remoteVideo.srcObject.getTracks()) {
             remoteVideo.srcObject.getTracks().forEach((track) => track.stop());
         }
+    }
+
+    mediaPanelDrawerOnClose = () => {
+        this.setState({
+            mediaPanelDrawerVisible: false
+        })
     }
 
     render() {
@@ -141,7 +147,13 @@ class ChatVideoOline extends React.Component {
                     />
                 </Tooltip>
 
-                <Drawer width='820px' forceRender={true} title="媒体面板" placement="right" onClose={this.mediaPanelDrawerOnClose} visible={this.state.mediaPanelDrawerVisible}>
+                <Drawer width='820px'
+                    forceRender={true}
+                    title="媒体面板"
+                    placement="right"
+                    onClose={this.mediaPanelDrawerOnClose}
+                    visible={this.state.mediaPanelDrawerVisible}
+                >
                     <Tooltip title="结束视频语音">
                         <Button
                             shape="circle"
@@ -151,8 +163,8 @@ class ChatVideoOline extends React.Component {
                         />
                     </Tooltip>
                     <br />
-                    <video id="preview" width="700px" height="auto" autoPlay muted controls />
-                    <video id="remoteVideo" width="700px" height="auto" autoPlay muted controls />
+                    <video id="localPreviewSender" width="700px" height="auto" autoPlay muted controls />
+                    <video id="remoteVideoSender" width="700px" height="auto" autoPlay muted controls />
                 </Drawer>
             </>
         );

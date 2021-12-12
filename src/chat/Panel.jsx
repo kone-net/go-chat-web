@@ -80,7 +80,6 @@ class Panel extends React.Component {
                 height: 0,
                 width: 0
             },
-            rtcType: 'answer',
         }
     }
 
@@ -191,11 +190,10 @@ class Panel extends React.Component {
          * @param {候选人信息} e 
          */
         peer.onicecandidate = (e) => {
-            console.log(this.state.rtcType + '_ice', e)
             if (e.candidate) {
                 // rtcType参数默认是对端值为answer，如果是发起端，会将值设置为offer
                 let candidate = {
-                    type: this.state.rtcType + '_ice',
+                    type: 'answer_ice',
                     iceCandidate: e.candidate
                 }
                 let message = {
@@ -212,10 +210,9 @@ class Panel extends React.Component {
          * @param {包含语音视频流} e 
          */
         peer.ontrack = (e) => {
-            console.log(e)
             if (e && e.streams) {
                 if (this.state.onlineType === 1) {
-                    let remoteVideo = document.getElementById("remoteVideo");
+                    let remoteVideo = document.getElementById("remoteVideoReceiver");
                     remoteVideo.srcObject = e.streams[0];
                 } else {
                     let remoteAudio = document.getElementById("audioPhone");
@@ -231,10 +228,10 @@ class Panel extends React.Component {
      */
     dealWebRtcMessage = (messagePB) => {
         const { type, sdp, iceCandidate } = JSON.parse(messagePB.content);
-        console.log(type)
+
         if (type === "answer") {
-            const offerSdp = new RTCSessionDescription({ type, sdp });
-            this.props.peer.localPeer.setRemoteDescription(offerSdp)
+            const answerSdp = new RTCSessionDescription({ type, sdp });
+            this.props.peer.localPeer.setRemoteDescription(answerSdp)
         } else if (type === "answer_ice") {
             this.props.peer.localPeer.addIceCandidate(iceCandidate)
         } else if (type === "offer_ice") {
@@ -247,7 +244,7 @@ class Panel extends React.Component {
 
             let video = false;
             if (messagePB.contentType === Constant.VIDEO_ONLINE) {
-                preview = document.getElementById("preview1");
+                preview = document.getElementById("localVideoReceiver");
                 video = true
                 this.setState({
                     onlineType: 1,
@@ -368,9 +365,9 @@ class Panel extends React.Component {
             isRecord: false
         })
 
-        let preview1 = document.getElementById("preview1");
-        if (preview1 && preview1.srcObject && preview1.srcObject.getTracks()) {
-            preview1.srcObject.getTracks().forEach((track) => track.stop());
+        let localVideoReceiver = document.getElementById("localVideoReceiver");
+        if (localVideoReceiver && localVideoReceiver.srcObject && localVideoReceiver.srcObject.getTracks()) {
+            localVideoReceiver.srcObject.getTracks().forEach((track) => track.stop());
         }
 
         let preview = document.getElementById("preview");
@@ -419,7 +416,11 @@ class Panel extends React.Component {
                     </Col>
 
                     <Col offset={1} span={16}>
-                        <Right history={this.props.history} />
+                        <Right
+                            history={this.props.history}
+                            sendMessage={this.sendMessage}
+                            checkMediaPermisssion={this.checkMediaPermisssion}
+                        />
                     </Col>
                 </Row>
 
@@ -434,8 +435,8 @@ class Panel extends React.Component {
                         />
                     </Tooltip>
                     <br />
-                    <video id="preview1" width="700px" height="auto" autoPlay muted controls />
-                    <video id="remoteVideo" width="700px" height="auto" autoPlay muted controls />
+                    <video id="localVideoReceiver" width="700px" height="auto" autoPlay muted controls />
+                    <video id="remoteVideoReceiver" width="700px" height="auto" autoPlay muted controls />
 
                     <img id="receiver" width={this.state.currentScreen.width} height="auto" alt="" />
                     <canvas id="canvas" width={this.state.currentScreen.width} height={this.state.currentScreen.height} />

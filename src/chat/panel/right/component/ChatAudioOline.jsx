@@ -19,7 +19,7 @@ class ChatAudioOline extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            
+            mediaPanelDrawerVisible: false,
         }
     }
 
@@ -40,25 +40,19 @@ class ChatAudioOline extends React.Component {
         }
 
         this.webrtcConnection();
-        console.log(this.props.peer)
-        this.setState({
-            onlineType: 2,
-            rtcType: 'offer'
-        })
-
         navigator.mediaDevices
             .getUserMedia({
                 audio: true,
                 video: false,
             }).then((stream) => {
                 stream.getTracks().forEach(track => {
-                    this.props.peer.localPeer.addTrack(track, stream);
+                    localPeer.addTrack(track, stream);
                 });
 
                 // 一定注意：需要将该动作，放在这里面，即流获取成功后，再进行offer创建。不然不能获取到流，从而不能播放视频。
-                this.props.peer.localPeer.createOffer()
+                localPeer.createOffer()
                     .then(offer => {
-                        this.props.peer.localPeer.setLocalDescription(offer);
+                        localPeer.setLocalDescription(offer);
                         let data = {
                             contentType: Constant.AUDIO_ONLINE,  // 消息内容类型
                             content: JSON.stringify(offer),
@@ -77,14 +71,12 @@ class ChatAudioOline extends React.Component {
     * webrtc 绑定事件
     */
     webrtcConnection = () => {
-        
 
         /**
          * 对等方收到ice信息后，通过调用 addIceCandidate 将接收的候选者信息传递给浏览器的ICE代理。
          * @param {候选人信息} e 
          */
-         localPeer.onicecandidate = (e) => {
-            console.log(e)
+        localPeer.onicecandidate = (e) => {
             if (e.candidate) {
                 // rtcType参数默认是对端值为answer，如果是发起端，会将值设置为offer
                 let candidate = {
@@ -104,27 +96,28 @@ class ChatAudioOline extends React.Component {
          * 当连接成功后，从里面获取语音视频流
          * @param {包含语音视频流} e 
          */
-         localPeer.ontrack = (e) => {
+        localPeer.ontrack = (e) => {
             if (e && e.streams) {
-                if (this.state.onlineType === 1) {
-                    let remoteVideo = document.getElementById("remoteVideo");
-                    remoteVideo.srcObject = e.streams[0];
-                } else {
-                    let remoteAudio = document.getElementById("audioPhone");
-                    remoteAudio.srcObject = e.streams[0];
-                }
+                let remoteAudio = document.getElementById("remoteAudioPhone");
+                remoteAudio.srcObject = e.streams[0];
             }
         };
     }
 
     /**
-     * 停止视频电话,屏幕共享
+     * 停止语音电话
      */
-     stopVideoOnline = () => {
-        let audioPhone = document.getElementById("audioPhone");
+    stopAudioOnline = () => {
+        let audioPhone = document.getElementById("remoteAudioPhone");
         if (audioPhone && audioPhone.srcObject && audioPhone.srcObject.getTracks()) {
             audioPhone.srcObject.getTracks().forEach((track) => track.stop());
         }
+    }
+
+    mediaPanelDrawerOnClose = () => {
+        this.setState({
+            mediaPanelDrawerVisible: false
+        })
     }
 
     render() {
@@ -141,18 +134,24 @@ class ChatAudioOline extends React.Component {
                     />
                 </Tooltip>
 
-                <Drawer width='820px' forceRender={true} title="媒体面板" placement="right" onClose={this.mediaPanelDrawerOnClose} visible={this.state.mediaPanelDrawerVisible}>
+                <Drawer width='420px'
+                    forceRender={true}
+                    title="媒体面板"
+                    placement="right"
+                    onClose={this.mediaPanelDrawerOnClose}
+                    visible={this.state.mediaPanelDrawerVisible}
+                >
                     <Tooltip title="结束视频语音">
                         <Button
                             shape="circle"
-                            onClick={this.stopVideoOnline}
+                            onClick={this.stopAudioOnline}
                             style={{ marginRight: 10, float: 'right' }}
                             icon={<PoweroffOutlined style={{ color: 'red' }} />}
                         />
                     </Tooltip>
                     <br />
-                    
-                    <audio id="audioPhone" autoPlay controls />
+
+                    <audio id="remoteAudioPhone" autoPlay controls />
                 </Drawer>
             </>
         );

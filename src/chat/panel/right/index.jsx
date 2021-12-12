@@ -1,7 +1,6 @@
 import React from 'react';
 
 import {
-    message,
     Tag,
     Tooltip,
     Button
@@ -22,7 +21,6 @@ import ChatVideoOline from './component/ChatVideoOline';
 import ChatEdit from './component/ChatEdit';
 
 import moment from 'moment';
-import protobuf from '../../proto/proto';
 import { connect } from 'react-redux';
 import { actions } from '../../redux/module/panel';
 
@@ -62,45 +60,6 @@ class RightIndex extends React.Component {
         this.appendMessage(<img src={base64String} alt="" width="150px" />);
     }
 
-    /**
-     * 发送消息
-     * @param {消息内容} messageData 
-     */
-    sendMessage = (messageData) => {
-        let data = {
-            ...messageData,
-            messageType: this.props.chooseUser.messageType, // 消息类型，1.单聊 2.群聊
-            fromUsername: localStorage.username,
-            from: localStorage.uuid,
-            to: this.props.chooseUser.toUser,
-        }
-        let message = protobuf.lookup("protocol.Message")
-        const messagePB = message.create(data)
-
-        let socket = this.props.socket;
-        if (null == socket) {
-            message.error("socket未连接");
-            return;
-        }
-        socket.send(message.encode(messagePB).finish())
-    }
-
-    /**
-     * 检查媒体权限是否开启
-     * @returns 媒体权限是否开启
-     */
-    checkMediaPermisssion = () => {
-        navigator.getUserMedia = navigator.getUserMedia ||
-            navigator.webkitGetUserMedia ||
-            navigator.mozGetUserMedia ||
-            navigator.msGetUserMedia; //获取媒体对象（这里指摄像头）
-        if (!navigator || !navigator.mediaDevices) {
-            message.error("获取摄像头权限失败！")
-            return false;
-        }
-        return true;
-    }
-
     showMediaPanel = () => {
         let media = {
             ...this.props.media,
@@ -119,37 +78,37 @@ class RightIndex extends React.Component {
                     history={this.props.history}
                     appendMessage={this.appendMessage}
                     appendImgToPanel={this.appendImgToPanel}
-                    sendMessage={this.sendMessage}
+                    sendMessage={this.props.sendMessage}
                 />
                 <ChatAudio
                     history={this.props.history}
                     appendMessage={this.appendMessage}
-                    sendMessage={this.sendMessage}
+                    sendMessage={this.props.sendMessage}
                 />
 
                 <ChatVideo
                     history={this.props.history}
                     appendMessage={this.appendMessage}
-                    sendMessage={this.sendMessage}
-                    checkMediaPermisssion={this.checkMediaPermisssion}
+                    sendMessage={this.props.sendMessage}
+                    checkMediaPermisssion={this.props.checkMediaPermisssion}
                 />
 
                 <ChatShareScreen
                     history={this.props.history}
-                    sendMessage={this.sendMessage}
-                    checkMediaPermisssion={this.checkMediaPermisssion}
+                    sendMessage={this.props.sendMessage}
+                    checkMediaPermisssion={this.props.checkMediaPermisssion}
                 />
 
                 <ChatAudioOline
                     history={this.props.history}
-                    sendMessage={this.sendMessage}
-                    checkMediaPermisssion={this.checkMediaPermisssion}
+                    sendMessage={this.props.sendMessage}
+                    checkMediaPermisssion={this.props.checkMediaPermisssion}
                 />
 
                 <ChatVideoOline
                     history={this.props.history}
-                    sendMessage={this.sendMessage}
-                    checkMediaPermisssion={this.checkMediaPermisssion}
+                    sendMessage={this.props.sendMessage}
+                    checkMediaPermisssion={this.props.checkMediaPermisssion}
                 />
 
                 <Tooltip title="显示视频面板">
@@ -169,7 +128,7 @@ class RightIndex extends React.Component {
                     history={this.props.history}
                     appendMessage={this.appendMessage}
                     appendImgToPanel={this.appendImgToPanel}
-                    sendMessage={this.sendMessage}
+                    sendMessage={this.props.sendMessage}
                 />
 
             </>
