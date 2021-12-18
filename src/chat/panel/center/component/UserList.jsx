@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 
 import moment from 'moment';
+import InfiniteScroll from 'react-infinite-scroll-component';
 import { connect } from 'react-redux'
 import { actions } from '../../../redux/module/panel'
 import * as Params from '../../../common/param/Params'
@@ -38,6 +39,7 @@ class UserList extends React.Component {
             avatar: value.avatar
         }
         this.fetchMessages(chooseUser);
+        this.removeUnreadMessageDot(value.uuid);
     }
 
     /**
@@ -100,26 +102,50 @@ class UserList extends React.Component {
         return content;
     }
 
+    /**
+     * 查看消息后，去掉未读提醒
+     * @param {发送给对应人员的uuid} toUuid 
+     */
+    removeUnreadMessageDot = (toUuid) => {
+        let userList = this.props.userList;
+        for (var index in userList) {
+            if (userList[index].uuid === toUuid) {
+                userList[index].hasUnreadMessage = false;
+                this.props.setUserList(userList);
+                break;
+            }
+        }
+    }
 
     render() {
 
         return (
             <>
-                <List
-                    itemLayout="horizontal"
-                    dataSource={this.props.userList}
-                    renderItem={item => (
-                        <List.Item>
-                            <List.Item.Meta
-                                style={{ paddingLeft: 30 }}
-                                onClick={() => this.chooseUser(item)}
-                                avatar={<Badge dot={true}><Avatar src={item.avatar} /></Badge>}
-                                title={item.username}
-                                description=""
-                            />
-                        </List.Item>
-                    )}
-                />
+                <div id="userList" style={{
+                    height: document.body.scrollHeight - 125,
+                    overflow: 'auto',
+                }}>
+                    <InfiniteScroll
+                        dataLength={this.props.userList.length}
+                        scrollableTarget="userList"
+                    >
+                        <List
+                            itemLayout="horizontal"
+                            dataSource={this.props.userList}
+                            renderItem={item => (
+                                <List.Item>
+                                    <List.Item.Meta
+                                        style={{ paddingLeft: 30 }}
+                                        onClick={() => this.chooseUser(item)}
+                                        avatar={<Badge dot={item.hasUnreadMessage}><Avatar src={item.avatar} /></Badge>}
+                                        title={item.username}
+                                        description=""
+                                    />
+                                </List.Item>
+                            )}
+                        />
+                    </InfiniteScroll>
+                </div>
             </>
         );
     }

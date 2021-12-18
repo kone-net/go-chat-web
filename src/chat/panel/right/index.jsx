@@ -71,7 +71,11 @@ class RightIndex extends React.Component {
     render() {
 
         return (
-            <>
+            <div style={{
+                height: document.body.scrollHeight - 80,
+                overflow: 'hidden',
+            }}
+            >
                 <ChatDetails history={this.props.history} appendMessage={this.appendMessage} />
                 <br />
                 <ChatFile
@@ -131,7 +135,7 @@ class RightIndex extends React.Component {
                     sendMessage={this.props.sendMessage}
                 />
 
-            </>
+            </div>
         );
     }
 }

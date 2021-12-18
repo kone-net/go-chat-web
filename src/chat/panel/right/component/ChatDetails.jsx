@@ -104,7 +104,7 @@ class ChatDetails extends React.Component {
                         <div
                             id="scrollableDiv"
                             style={{
-                                height: 450,
+                                height: document.body.scrollHeight / 3 * 1.4,
                                 overflow: 'auto',
                                 padding: '0 16px',
                                 border: '0px solid rgba(140, 140, 140, 0.35)',

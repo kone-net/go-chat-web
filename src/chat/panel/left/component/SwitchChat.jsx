@@ -38,6 +38,7 @@ class SwitchChat extends React.Component {
                 let data = []
                 for (var index in users) {
                     let d = {
+                        hasUnreadMessage: false,
                         username: users[index].username,
                         uuid: users[index].uuid,
                         messageType: 1,
@@ -80,7 +81,7 @@ class SwitchChat extends React.Component {
     render() {
         const { menuType } = this.state
         return (
-            <>
+            <div style={{marginTop: 25}}>
                 <p >
                     <Button
                         icon={<UserOutlined />}
@@ -102,7 +103,7 @@ class SwitchChat extends React.Component {
                     >
                     </Button>
                 </p>
-            </>
+            </div>
         );
     }
 }

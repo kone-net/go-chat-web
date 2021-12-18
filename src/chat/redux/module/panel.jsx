@@ -11,6 +11,8 @@ const initialState = {
     media: {
         isRecord: false,
         showMediaPanel: false,
+        mediaConnected: false,
+        mediaReject: false,
     },
     peer: {
         localPeer: null,  // WebRTC peer 发起端

@@ -6,6 +6,7 @@ import {
     message,
     Drawer,
     Tooltip,
+    Modal
 } from 'antd';
 import {
     PoweroffOutlined,
@@ -80,6 +81,9 @@ class Panel extends React.Component {
                 height: 0,
                 width: 0
             },
+            videoCallModal: false,
+            callName: '',
+            fromUserUuid: '',
         }
     }
 
@@ -112,7 +116,20 @@ class Panel extends React.Component {
             reader.readAsArrayBuffer(message.data);
             reader.onload = ((event) => {
                 let messagePB = messageProto.decode(new Uint8Array(event.target.result))
-                if (this.props.chooseUser.toUser !== messagePB.from || messagePB.type === "heatbeat") {
+                console.log(messagePB)
+                if (messagePB.type === "heatbeat") {
+                    return;
+                }
+
+                // 接受语音电话或者视频电话 webrtc
+                if (messagePB.type === Constant.MESSAGE_TRANS_TYPE) {
+                    this.dealWebRtcMessage(messagePB);
+                    return;
+                }
+
+                // 如果该消息不是正在聊天消息，显示未读提醒
+                if (this.props.chooseUser.toUser !== messagePB.from) {
+                    this.showUnreadMessageDot(messagePB.from);
                     return;
                 }
 
@@ -142,11 +159,11 @@ class Panel extends React.Component {
                     return;
                 }
 
-                // 接受语音电话或者视频电话 webrtc
-                if (messagePB.type === Constant.MESSAGE_TRANS_TYPE) {
-                    this.dealWebRtcMessage(messagePB);
-                    return;
-                }
+                // // 接受语音电话或者视频电话 webrtc
+                // if (messagePB.type === Constant.MESSAGE_TRANS_TYPE) {
+                //     this.dealWebRtcMessage(messagePB);
+                //     return;
+                // }
 
                 let avatar = this.props.chooseUser.avatar
                 if (messagePB.messageType === 2) {
@@ -227,6 +244,10 @@ class Panel extends React.Component {
      * @param {消息内容}} messagePB 
      */
     dealWebRtcMessage = (messagePB) => {
+        if (messagePB.contentType >= Constant.DIAL_MEDIA_START && messagePB.contentType <= Constant.DIAL_MEDIA_END) {
+            this.dealMediaCall(messagePB);
+            return;
+        }
         const { type, sdp, iceCandidate } = JSON.parse(messagePB.content);
 
         if (type === "answer") {
@@ -324,12 +345,16 @@ class Panel extends React.Component {
       * @param {消息内容} messageData 
       */
     sendMessage = (messageData) => {
+        let toUser = messageData.toUser;
+        if (null == toUser) {
+            toUser = this.props.chooseUser.toUser;
+        }
         let data = {
             ...messageData,
             messageType: this.props.chooseUser.messageType, // 消息类型，1.单聊 2.群聊
             fromUsername: localStorage.username,
             from: localStorage.uuid,
-            to: this.props.chooseUser.toUser,
+            to: toUser,
         }
         let message = protobuf.lookup("protocol.Message")
         const messagePB = message.create(data)
@@ -402,20 +427,102 @@ class Panel extends React.Component {
         this.props.setMedia(media)
     }
 
+    /**
+     * 如果接收到的消息不是正在聊天的消息，显示未读提醒
+     * @param {发送给对应人员的uuid} toUuid 
+     */
+    showUnreadMessageDot = (toUuid) => {
+        let userList = this.props.userList;
+        for (var index in userList) {
+            if (userList[index].uuid === toUuid) {
+                userList[index].hasUnreadMessage = true;
+                this.props.setUserList(userList);
+                break;
+            }
+        }
+    }
+
+    /**
+     * 接听电话后，发送接听确认消息，显示媒体面板
+     */
+    handleOk = () => {
+        this.setState({
+            videoCallModal: false,
+        })
+        let data = {
+            contentType: Constant.ACCEPT_VIDEO_ONLINE,
+            type: Constant.MESSAGE_TRANS_TYPE,
+            toUser: this.state.fromUserUuid,
+        }
+        this.sendMessage(data);
+
+        let media = {
+            ...this.props.media,
+            showMediaPanel: true,
+        }
+        this.props.setMedia(media)
+    }
+
+    handleCancel = () => {
+        let data = {
+            contentType: Constant.REJECT_VIDEO_ONLINE,
+            type: Constant.MESSAGE_TRANS_TYPE,
+        }
+        this.sendMessage(data);
+        this.setState({
+            videoCallModal: false,
+        })
+    }
+
+    dealMediaCall = (message) => {
+        if (message.contentType === Constant.DIAL_AUDIO_ONLINE || message.contentType === Constant.DIAL_VIDEO_ONLINE) {
+            this.setState({
+                videoCallModal: true,
+                callName: message.fromUsername,
+                fromUserUuid: message.from,
+            })
+            return;
+        }
+
+        if (message.contentType === Constant.CANCELL_AUDIO_ONLINE || message.contentType === Constant.CANCELL_VIDEO_ONLINE) {
+            this.setState({
+                videoCallModal: false,
+            })
+            return;
+        }
+
+        if (message.contentType === Constant.REJECT_AUDIO_ONLINE || message.contentType === Constant.REJECT_VIDEO_ONLINE) {
+            let media = {
+                ...this.props.media,
+                mediaReject: true,
+            }
+            this.props.setMedia(media);
+            return;
+        }
+
+        if (message.contentType === Constant.ACCEPT_VIDEO_ONLINE || message.contentType === Constant.ACCEPT_AUDIO_ONLINE) {
+            let media = {
+                ...this.props.media,
+                mediaConnected: true,
+            }
+            this.props.setMedia(media);
+        }
+    }
+
     render() {
 
         return (
             <>
-                <Row style={{ paddingTop: 20, paddingBottom: 40 }}>
-                    <Col span={2} style={{ borderRight: '1px solid #f0f0f0', textAlign: 'center' }}>
+                <Row style={{ paddingTop: 35, borderBottom: '1px solid #f0f0f0', borderTop: '1px solid #f0f0f0' }}>
+                    <Col span={2} style={{ borderRight: '1px solid #f0f0f0', textAlign: 'center', borderTop: '1px solid #f0f0f0' }}>
                         <Left history={this.props.history} />
                     </Col>
 
-                    <Col span={4} style={{ borderRight: '1px solid #f0f0f0' }}>
+                    <Col span={4} style={{ borderRight: '1px solid #f0f0f0', borderTop: '1px solid #f0f0f0' }}>
                         <Center />
                     </Col>
 
-                    <Col offset={1} span={16}>
+                    <Col offset={1} span={16} style={{ borderTop: '1px solid #f0f0f0' }}>
                         <Right
                             history={this.props.history}
                             sendMessage={this.sendMessage}
@@ -442,6 +549,17 @@ class Panel extends React.Component {
                     <canvas id="canvas" width={this.state.currentScreen.width} height={this.state.currentScreen.height} />
                     <audio id="audioPhone" autoPlay controls />
                 </Drawer>
+
+                <Modal
+                    title="视频电话"
+                    visible={this.state.videoCallModal}
+                    onOk={this.handleOk}
+                    onCancel={this.handleCancel}
+                    okText="接听"
+                    cancelText="挂断"
+                >
+                    <p>{this.state.callName}来电</p>
+                </Modal>
             </>
         );
     }
@@ -454,11 +572,13 @@ function mapStateToProps(state) {
         messageList: state.panelReducer.messageList,
         chooseUser: state.panelReducer.chooseUser,
         peer: state.panelReducer.peer,
+        userList: state.panelReducer.userList,
     }
 }
 
 function mapDispatchToProps(dispatch) {
     return {
+        setUserList: (data) => dispatch(actions.setUserList(data)),
         setMessageList: (data) => dispatch(actions.setMessageList(data)),
         setSocket: (data) => dispatch(actions.setSocket(data)),
         setMedia: (data) => dispatch(actions.setMedia(data)),

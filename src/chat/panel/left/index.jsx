@@ -7,10 +7,10 @@ export default class LeftIndex extends React.Component {
     render() {
 
         return (
-            <>
+            <div style={{ marginTop: 10 }}>
                 <UserInfo history={this.props.history} />
                 <SwitchChat />
-            </>
+            </div>
         );
     }
 }
