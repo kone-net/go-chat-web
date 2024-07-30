@@ -3,22 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@testing-library/jest-dom": "^5.11.4",
-    "@testing-library/react": "^11.1.0",
-    "@testing-library/user-event": "^12.1.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^2.1.4",
+
     "antd": "^4.16.13",
     "axios": "^0.24.0",
     "js-audio-recorder": "^1.0.7",
     "protobufjs": "^6.11.2",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
+    "socket.io-client": "^4.3.2",
     "react-infinite-scroll-component": "^6.1.0",
     "react-redux": "^7.2.6",
-    "react-router-dom": "^5.3.0",
-    "react-scripts": "4.0.3",
     "redux-thunk": "^2.4.0",
-    "socket.io-client": "^4.3.2",
-    "web-vitals": "^1.0.1"
+    "react-router-dom": "^5.3.0"
   },
   "scripts": {
     "start": "react-scripts start",
