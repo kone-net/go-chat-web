@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  scan-web-one:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    image: go-chat-web:v1
+    container_name: go-chat-web
+    restart: always
+    ports:
+      - 3000:3000
