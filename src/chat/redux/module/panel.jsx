@@ -27,6 +27,7 @@ export const types = {
     SOCKET_SET: 'SOCKET/SET',
     MEDIA_SET: 'MEDIA/SET',
     PEER_SET: 'PEER/SET',
+    REMOTE_PEER_SET: 'REMOTE_PEER/SET',
 }
 
 export const actions = {
@@ -54,6 +55,10 @@ export const actions = {
         type: types.PEER_SET,
         peer: peer
     }),
+    setRemotePeer: (peer) => ({
+        type: types.REMOTE_PEER_SET,
+        peer: peer
+    }),
 }
 
 const PanelReducer = (state = initialState, action) => {
@@ -69,6 +74,10 @@ const PanelReducer = (state = initialState, action) => {
         case types.MEDIA_SET:
             return { ...state, media: action.media }
         case types.PEER_SET:
+            console.log("PanelReducer local peer --------->", state, action)
+            return { ...state, peer: action.peer }
+        case types.REMOTE_PEER_SET:
+            console.log("PanelReducer remote peer --------->", state, action)
             return { ...state, peer: action.peer }
         default:
             return state

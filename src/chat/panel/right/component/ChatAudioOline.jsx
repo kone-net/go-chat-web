@@ -24,7 +24,16 @@ class ChatAudioOline extends React.Component {
     }
 
     componentDidMount() {
-        localPeer = new RTCPeerConnection();
+        const configuration = {
+            iceServers: [
+                {
+                    "urls": "stun:stun.1.google.com:19302"
+                }, {
+                    "urls": "stun:stun.2.google.com:19302"
+                }
+            ]
+        };
+        localPeer = new RTCPeerConnection(configuration);
         let peer = {
             ...this.props.peer,
             localPeer: localPeer

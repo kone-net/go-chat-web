@@ -9,6 +9,7 @@ import {
     Modal
 } from 'antd';
 import {
+    VideoCameraOutlined,
     PoweroffOutlined,
     FileOutlined,
 } from '@ant-design/icons';
@@ -24,7 +25,8 @@ import { connect } from 'react-redux'
 import { actions } from './redux/module/panel'
 
 var socket = null;
-var peer = null;
+var remotePeer = null;
+var localPeer = null;
 var lockConnection = false;
 
 var heartCheck = {
@@ -96,7 +98,24 @@ class Panel extends React.Component {
      */
     connection = () => {
         console.log("to connect...")
-        peer = new RTCPeerConnection();
+        const configuration = {
+            iceServers: [
+                {
+                    "urls": "stun:stun.1.google.com:19302"
+                }, 
+                {
+                    "urls": "stun:stun.2.google.com:19302"
+                }
+            ]
+        };
+        remotePeer = new RTCPeerConnection(configuration);
+        localPeer = new RTCPeerConnection(configuration);
+        let peer = {
+            ...this.props.peer,
+            localPeer: localPeer,
+            remotePeer: remotePeer
+        }
+        this.props.setPeer(peer);
         var image = document.getElementById('receiver');
         socket = new WebSocket("ws://" + Params.IP_PORT + "/socket.io?user=" + this.props.match.params.user)
 
@@ -202,12 +221,44 @@ class Panel extends React.Component {
      * webrtc 绑定事件
      */
     webrtcConnection = () => {
+        this.props.peer.localPeer.onicecandidate = (e) => {
+            if (e.candidate) {
+                console.log("A get candidate ", e.candidate)
+                // if (null != this.props.peer.remotePeer) {
+                //     this.props.peer.remotePeer.addIceCandidate(e.candidate)
+                // }
+
+                // rtcType参数默认是对端值为answer，如果是发起端，会将值设置为offer
+                let candidate = {
+                    type: 'offer_ice',
+                    iceCandidate: e.candidate
+                }
+                let message = {
+                    content: JSON.stringify(candidate),
+                    type: Constant.MESSAGE_TRANS_TYPE,
+                }
+                this.sendMessage(message);
+            }
+        };
+        this.props.peer.localPeer.ontrack = (e) => {
+            if (e && e.streams) {
+                let remoteVideo = document.getElementById("remoteVideoReceiver");
+                remoteVideo.srcObject = e.streams[0];
+            }
+        };
+
+
         /**
          * 对等方收到ice信息后，通过调用 addIceCandidate 将接收的候选者信息传递给浏览器的ICE代理。
          * @param {候选人信息} e 
          */
-        peer.onicecandidate = (e) => {
+        this.props.peer.remotePeer.onicecandidate = (e) => {
             if (e.candidate) {
+                console.log("B get candidate ", e.candidate)
+                // if (null != this.props.peer.localPeer) {
+                //     this.props.peer.localPeer.addIceCandidate(e.candidate)
+                // }
+
                 // rtcType参数默认是对端值为answer，如果是发起端，会将值设置为offer
                 let candidate = {
                     type: 'answer_ice',
@@ -226,7 +277,7 @@ class Panel extends React.Component {
          * 当连接成功后，从里面获取语音视频流
          * @param {包含语音视频流} e 
          */
-        peer.ontrack = (e) => {
+        this.props.peer.remotePeer.ontrack = (e) => {
             if (e && e.streams) {
                 if (this.state.onlineType === 1) {
                     let remoteVideo = document.getElementById("remoteVideoReceiver");
@@ -239,25 +290,92 @@ class Panel extends React.Component {
         };
     }
 
+    startVideoOnline = () => {
+        if (!this.checkMediaPermisssion()) {
+            return;
+        }
+        let media = {
+            ...this.props.media,
+            showMediaPanel: true,
+        }
+        this.props.setMedia(media)
+
+        // let data = {
+        //     contentType: Constant.DIAL_VIDEO_ONLINE,
+        //     type: Constant.MESSAGE_TRANS_TYPE,
+        // }
+        // this.sendMessage(data);
+        this.sendVideoData();
+    }
+
+    sendVideoData = () => {
+        let preview = document.getElementById("localVideoReceiver");
+
+        navigator.mediaDevices
+            .getUserMedia({
+                audio: true,
+                video: true,
+            }).then((stream) => {
+                preview.srcObject = stream;
+                stream.getTracks().forEach(track => {
+                    this.props.peer.localPeer.addTrack(track, stream);
+                });
+
+                // 一定注意：需要将该动作，放在这里面，即流获取成功后，再进行offer创建。不然不能获取到流，从而不能播放视频。
+                this.props.peer.localPeer.createOffer()
+                    .then(offer => {
+                        console.log("A send offer sdp ", offer)
+                        this.props.peer.localPeer.setLocalDescription(offer);
+                        let data = {
+                            contentType: Constant.VIDEO_ONLINE,
+                            content: JSON.stringify(offer),
+                            type: Constant.MESSAGE_TRANS_TYPE,
+                        }
+                        this.sendMessage(data);
+                    });
+            });
+
+        this.setState({
+            mediaPanelDrawerVisible: true
+        })
+    }
+
     /**
      * 处理webrtc消息，包括获取请求方的offer，回应answer等
      * @param {消息内容}} messagePB 
      */
     dealWebRtcMessage = (messagePB) => {
+        console.log("props peer =================> ", this.props.peer)
+
         if (messagePB.contentType >= Constant.DIAL_MEDIA_START && messagePB.contentType <= Constant.DIAL_MEDIA_END) {
             this.dealMediaCall(messagePB);
             return;
         }
         const { type, sdp, iceCandidate } = JSON.parse(messagePB.content);
 
-        if (type === "answer") {
+        if (type === "answer" && null != sdp) {
+            // console.log("A dealWebRtcMessage get answer message are ", type, sdp, iceCandidate)
+            console.log("A dealWebRtcMessage get answer message are ", type)
             const answerSdp = new RTCSessionDescription({ type, sdp });
-            this.props.peer.localPeer.setRemoteDescription(answerSdp)
-        } else if (type === "answer_ice") {
+            console.log("answerSdp is ", answerSdp)
+            if (null != answerSdp) {
+                this.props.peer.localPeer.setRemoteDescription(answerSdp)
+            }
+        } 
+        else if (type === "answer_ice" && null != iceCandidate) {
+            // console.log("A dealWebRtcMessage get answer_ice message are ", type, sdp, iceCandidate)
+            console.log("A dealWebRtcMessage get answer_ice message are ", type)
             this.props.peer.localPeer.addIceCandidate(iceCandidate)
-        } else if (type === "offer_ice") {
-            peer.addIceCandidate(iceCandidate)
-        } else if (type === "offer") {
+        } else if (type === "offer_ice" && null != iceCandidate) {
+            // console.log("B dealWebRtcMessage get offer_ice message are ", type, sdp, iceCandidate)
+            console.log("B dealWebRtcMessage get offer_ice message are ", type)
+            if (null != this.props.peer.remotePeer) {
+                this.props.peer.remotePeer.addIceCandidate(iceCandidate)
+            }
+        } 
+        else if (type === "offer") {
+            // console.log("B dealWebRtcMessage get offer message are ", type, sdp, iceCandidate)
+            console.log("B dealWebRtcMessage get offer message are ", type)
             if (!this.checkMediaPermisssion()) {
                 return;
             }
@@ -270,6 +388,12 @@ class Panel extends React.Component {
                 this.setState({
                     onlineType: 1,
                 })
+
+                let media = {
+                    ...this.props.media,
+                    showMediaPanel: true,
+                }
+                this.props.setMedia(media)
             } else {
                 preview = document.getElementById("audioPhone");
                 this.setState({
@@ -283,24 +407,32 @@ class Panel extends React.Component {
                     video: video,
                 }).then((stream) => {
                     preview.srcObject = stream;
+
+
+                    let usePeer = this.props.peer.remotePeer
+                    if (null == usePeer) {
+                        return;
+                    }
+
                     stream.getTracks().forEach(track => {
-                        peer.addTrack(track, stream);
+                        usePeer.addTrack(track, stream);
                     });
 
                     // 一定注意：需要将该动作，放在这里面，即流获取成功后，再进行answer创建。不然不能获取到流，从而不能播放视频。
                     const offerSdp = new RTCSessionDescription({ type, sdp });
-                    peer.setRemoteDescription(offerSdp)
+                    usePeer.setRemoteDescription(offerSdp)
                         .then(() => {
-                            peer.createAnswer().then(answer => {
-                                peer.setLocalDescription(answer)
+                            usePeer.createAnswer()
+                                .then(answer => {
+                                    usePeer.setLocalDescription(answer)
 
-                                let message = {
-                                    content: JSON.stringify(answer),
-                                    type: Constant.MESSAGE_TRANS_TYPE,
-                                    messageType: messagePB.contentType
-                                }
-                                this.sendMessage(message);
-                            })
+                                    let message = {
+                                        content: JSON.stringify(answer),
+                                        type: Constant.MESSAGE_TRANS_TYPE,
+                                        messageType: messagePB.contentType
+                                    }
+                                    this.sendMessage(message);
+                                })
                         });
                 });
         }
@@ -529,10 +661,18 @@ class Panel extends React.Component {
                             checkMediaPermisssion={this.checkMediaPermisssion}
                         />
                     </Col>
+                    <Tooltip title="视频聊天">
+                        <Button
+                            shape="circle"
+                            onClick={this.startVideoOnline}
+                            style={{ marginRight: 10 }}
+                            icon={<VideoCameraOutlined />} 
+                        />
+                    </Tooltip>
                 </Row>
 
 
-                <Drawer width='820px' forceRender={true} title="媒体面板" placement="right" onClose={this.mediaPanelDrawerOnClose} visible={this.props.media.showMediaPanel}>
+                <Drawer width='820px' forceRender={true} title="媒体面板" placement="right" onClose={this.mediaPanelDrawerOnClose} open={this.props.media.showMediaPanel}>
                     <Tooltip title="结束视频语音">
                         <Button
                             shape="circle"
@@ -582,6 +722,7 @@ function mapDispatchToProps(dispatch) {
         setMessageList: (data) => dispatch(actions.setMessageList(data)),
         setSocket: (data) => dispatch(actions.setSocket(data)),
         setMedia: (data) => dispatch(actions.setMedia(data)),
+        setPeer: (data) => dispatch(actions.setPeer(data)),
     }
 }
 

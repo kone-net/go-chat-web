@@ -15,7 +15,7 @@ import * as Constant from '../../../common/constant/Constant'
 import { connect } from 'react-redux'
 import { actions } from '../../../redux/module/panel'
 
-let localPeer = null;
+// let localPeer = null;
 class ChatVideoOline extends React.Component {
     constructor(props) {
         super(props)
@@ -27,19 +27,21 @@ class ChatVideoOline extends React.Component {
 
     componentDidMount() {
         // const configuration = {
-        //     iceServers: [{
-        //         "url": "stun:23.21.150.121"
-        //     }, {
-        //         "url": "stun:stun.l.google.com:19302"
-        //     }]
+        //     iceServers: [
+        //         {
+        //             "urls": "stun:stun.1.google.com:19302"
+        //         }, {
+        //             "urls": "stun:stun.2.google.com:19302"
+        //         }
+        //     ]
         // };
-        localPeer = new RTCPeerConnection();
-        let peer = {
-            ...this.props.peer,
-            localPeer: localPeer
-        }
-        this.props.setPeer(peer);
-        this.webrtcConnection();
+        // localPeer = new RTCPeerConnection(configuration);
+        // let peer = {
+        //     ...this.props.peer,
+        //     localPeer: localPeer
+        // }
+        // this.props.setPeer(peer);
+        // this.webrtcConnection();
     }
     videoIntervalObj = null;
     /**
@@ -104,13 +106,14 @@ class ChatVideoOline extends React.Component {
             }).then((stream) => {
                 preview.srcObject = stream;
                 stream.getTracks().forEach(track => {
-                    localPeer.addTrack(track, stream);
+                    this.props.peer.localPeer.addTrack(track, stream);
                 });
 
                 // 一定注意：需要将该动作，放在这里面，即流获取成功后，再进行offer创建。不然不能获取到流，从而不能播放视频。
-                localPeer.createOffer()
+                this.props.peer.localPeer.createOffer()
                     .then(offer => {
-                        localPeer.setLocalDescription(offer);
+                        console.log("A send offer sdp ", offer)
+                        this.props.peer.localPeer.setLocalDescription(offer);
                         let data = {
                             contentType: Constant.VIDEO_ONLINE,
                             content: JSON.stringify(offer),
@@ -129,13 +132,21 @@ class ChatVideoOline extends React.Component {
     * webrtc 绑定事件
     */
     webrtcConnection = () => {
+        if (null == this.props.peer.localPeer) {
+            return;
+        }
 
         /**
          * 对等方收到ice信息后，通过调用 addIceCandidate 将接收的候选者信息传递给浏览器的ICE代理。
          * @param {候选人信息} e 
          */
-        localPeer.onicecandidate = (e) => {
+        this.props.peer.localPeer.onicecandidate = (e) => {
             if (e.candidate) {
+                console.log("A get candidate ", e.candidate)
+                // if (null != this.props.peer.remotePeer) {
+                //     this.props.peer.remotePeer.addIceCandidate(e.candidate)
+                // }
+
                 // rtcType参数默认是对端值为answer，如果是发起端，会将值设置为offer
                 let candidate = {
                     type: 'offer_ice',
@@ -154,7 +165,7 @@ class ChatVideoOline extends React.Component {
          * 当连接成功后，从里面获取语音视频流
          * @param {包含语音视频流} e 
          */
-        localPeer.ontrack = (e) => {
+        this.props.peer.localPeer.ontrack = (e) => {
             if (e && e.streams) {
                 let remoteVideo = document.getElementById("remoteVideoSender");
                 remoteVideo.srcObject = e.streams[0];
@@ -217,7 +228,7 @@ class ChatVideoOline extends React.Component {
                     title="媒体面板"
                     placement="right"
                     onClose={this.mediaPanelDrawerOnClose}
-                    visible={this.state.mediaPanelDrawerVisible}
+                    open={this.state.mediaPanelDrawerVisible}
                 >
                     <Tooltip title="结束视频语音">
                         <Button
@@ -234,7 +245,7 @@ class ChatVideoOline extends React.Component {
 
                 <Modal
                     title="视频电话"
-                    visible={this.state.videoCallModal}
+                    open={this.state.videoCallModal}
                     onOk={this.handleOk}
                     onCancel={this.handleCancel}
                     okText="确认"
