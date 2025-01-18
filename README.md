@@ -1,3 +1,5 @@
+[<img src="https://api.gitsponsors.com/api/badge/img?id=429480643" height="20">](https://api.gitsponsors.com/api/badge/link?p=7tFDsd584o96OI5wF/+5gD4IQOWowpPkWAkD1FHfmTFtRDxbKp2OAVkxvtLPln8hi7FQS5C9i0f6CL/qJjAoIw==)
+
 ## go-chat
 使用Go基于WebSocket的通讯聊天软件。
 
