@@ -1,4 +1,4 @@
-[<img src="https://api.gitsponsors.com/api/badge/img?id=429480643" height="20">](https://api.gitsponsors.com/api/badge/link?p=7tFDsd584o96OI5wF/+5gD4IQOWowpPkWAkD1FHfmTFtRDxbKp2OAVkxvtLPln8hi7FQS5C9i0f6CL/qJjAoIw==)
+[<img src="https://api.gitsponsors.com/api/badge/img?id=429480643" height="20">](https://api.gitsponsors.com/api/badge/link?p=7tFDsd584o96OI5wF/+5gGz7zPQ0oqxF/5x80dXnuK4GFcxewmnznrgb1ptFymOUd1XshHXAUoy5G0P6j+IZ0fqmzTbrrQWA3BEOIbnRzjG+A4q3JA2rkUDWOjslmFtRCc/SAg7DHBS+wTFrfpErUQ==)
 
 ## go-chat
 使用Go基于WebSocket的通讯聊天软件。
